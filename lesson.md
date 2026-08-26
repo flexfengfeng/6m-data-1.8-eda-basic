@@ -7,7 +7,7 @@
 | **Duration** | 150 minutes (including 2 × 10-min breaks) |
 | **Format** | Flipped Classroom + Guided Coding in Jupyter |
 | **Tools** | VS Code + `pds` conda environment |
-| **Notebook** | `notebooks/eda_basic.ipynb` |
+| **Notebooks** | `notebooks/Part_1_descriptive_statistics.ipynb` → `Part_4_reading_writing_data.ipynb` (4 parts, see below) |
 | **Dataset** | `data/cafe_june_raw.csv` — one messy till export, used from start to finish |
 
 ## Agenda
@@ -112,8 +112,9 @@ By the end of this session, you will be able to:
 - ✓ Familiar with regex basics
 - ✓ `pds` conda environment is set up
 
-Open the notebook in VS Code by double-clicking `notebooks/eda_basic.ipynb`, then select the `pds`
-conda environment as the kernel.
+Open `notebooks/Part_1_descriptive_statistics.ipynb` in VS Code, then select the `pds` conda
+environment as the kernel. Each part notebook ends with a pointer to the next one
+(`Part_2_data_quality.ipynb`, `Part_3_data_transformation.ipynb`, `Part_4_reading_writing_data.ipynb`).
 
 ---
 

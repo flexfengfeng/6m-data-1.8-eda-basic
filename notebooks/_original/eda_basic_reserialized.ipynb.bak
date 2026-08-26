@@ -1,0 +1,4088 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Lesson 1.8: EDA Basic\n",
+    "\n",
+    "Welcome to Exploratory Data Analysis. This notebook takes one raw, messy business file and walks the\n",
+    "full path: understanding its structure, cleaning it, transforming it, and moving it in and out of\n",
+    "files.\n",
+    "\n",
+    "**Structure — the four learning outcomes, in order:**\n",
+    "* **Part 1: Descriptive Statistics** — *summarise* a dataset: shape, data types, distributions.\n",
+    "* **Part 2: Data Quality** — *handle* the messy reality: missing values, duplicates, impossible values.\n",
+    "* **Part 3: Data Transformation** — *transform* for analysis: mapping, labels, strings, categories, dates.\n",
+    "* **Part 4: Reading & Writing Data** — *read and write* CSV, JSON, Excel, databases.\n",
+    "\n",
+    "**For Learners:** read the `# 👉` comment above each line before you run the cell. The comment says\n",
+    "what the line does in plain English; the output shows you it happened.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "> **🧭 Today's flow — 150 minutes.** One messy file, four learning outcomes, in order:\n",
+    ">\n",
+    "> | | Section | Learning outcome | Time |\n",
+    "> |---|---|---|---|\n",
+    "> | — | Setup + why this matters | | 5 min |\n",
+    "> | **Part 1** | Descriptive Statistics | **Summarise** a dataset: shape, dtypes, distributions | 33 min |\n",
+    "> | ☕ | *Break* | | 10 min |\n",
+    "> | **Part 2** | Data Quality | **Handle** missing values, duplicates, impossible values | 42 min |\n",
+    "> | ☕ | *Break* | | 10 min |\n",
+    "> | **Part 3** | Data Transformation | **Transform**: mapping, labels, strings, categories, dates, grouping | 35 min |\n",
+    "> | **Part 4** | Reading & Writing Data | **Read and write** CSV, JSON, Excel, databases | 15 min |\n",
+    ">\n",
+    "> **The spine:** we work on one file, `data/cafe_june_raw.csv`, from start to finish. Each section\n",
+    "> improves the same `clean` table, and Part 4 saves it. Small hand-built tables appear alongside it\n",
+    "> as *drills* — they isolate one method so you can see exactly what it does.\n",
+    ">\n",
+    "> Each of Parts 1–3 ends with a **🛠️ Group Exercise**. Deep dives live in `reference.md`;\n",
+    "> the Appendix at the end is self-study.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### The business problem\n",
+    "\n",
+    "> **The Daily Grind** is a four-outlet café chain in Singapore. Revenue has been flat for two\n",
+    "> quarters, and the owner has to decide whether to renew the Marina Bay lease. She asks her\n",
+    "> assistant to send you the sales data. What arrives is a **raw till export**: one row per outlet,\n",
+    "> per day, per part of the day, straight out of the point-of-sale system, untouched.\n",
+    ">\n",
+    "> Nobody can answer the owner's question from this file yet. Today's job is to make it\n",
+    "> answerable — and to be able to say *why* every number in it can be trusted.\n",
+    "\n",
+    "This is the first of three lessons on the same problem:\n",
+    "\n",
+    "| Lesson | The question | What you do |\n",
+    "|---|---|---|\n",
+    "| **1.8 — today** | **Can I trust this data?** | clean one month of the raw export |\n",
+    "| 1.9 | What is the pattern? | 18 months, cleaned: time, joins, grouping |\n",
+    "| 1.10 | How do I make them act? | one chart, one slide, one decision |\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Setup\n",
+    "\n",
+    "Import the libraries, then load the file we will use all session.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "b1834949",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Load the two toolkits we need. `pd` and `np` are just short nicknames so we can\n",
+    "#    type `pd.something` instead of `pandas.something`. Run this cell first, every session.\n",
+    "import pandas as pd\n",
+    "import numpy as np\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "775628f5",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Load the dataset we will use all session: June 2025's till export from four cafés.\n",
+    "#    `read_csv` reads a comma-separated text file into a DataFrame -- a table with named columns.\n",
+    "#    pandas already treats an empty field, \"NA\" and \"n/a\" as missing.\n",
+    "raw = pd.read_csv(\"../data/cafe_june_raw.csv\")\n",
+    "\n",
+    "raw\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "abefb9f5",
+   "metadata": {},
+   "source": [
+    "### 🎬 Why this matters — before you trust a single number\n",
+    "\n",
+    "Run the next three cells. The chain has **four** cafés and its busiest shift takes about \\$1,000.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "62540afb",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 `.value_counts()` counts how many rows have each value. How many cafés do you count?\n",
+    "raw[\"outlet\"].value_counts()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "11d22237",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 The same question of the daypart column. There are three parts to a trading day.\n",
+    "raw[\"daypart\"].value_counts()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "12b77293",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Sort the takings column and look at the two ends. `.dropna()` skips the blank cells,\n",
+    "#    because a sort cannot compare text with a blank -- which is itself a clue.\n",
+    "#    `.iloc[[0, -1]]` takes the first and last rows of the sorted result.\n",
+    "raw[\"revenue_raw\"].dropna().sort_values().iloc[[0, -1]]\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "14a3fa18",
+   "metadata": {},
+   "source": [
+    "**Three problems, in three lines of output.**\n",
+    "\n",
+    "1. **Twelve spellings for four cafés.** `Raffles Place`, `raffles place`, `RAFFLES PLACE`,\n",
+    "   `Raffles Pl.`… Group by outlet today and you get twelve cafés, four of which are the same shop.\n",
+    "2. **Nine labels for three dayparts** — `Morning`, `morning`, `AM`, and so on.\n",
+    "3. **The revenue column is not a number.** Sorted, the \"smallest\" value is `\" 1,006.71 \"` and the\n",
+    "   \"largest\" is `\"S$94.41\"`, because pandas is comparing them as **text**: a space sorts before a\n",
+    "   digit, and the letter `S` sorts after every digit. Sorted as text, \\$98,000 loses to \\$99.\n",
+    "\n",
+    "Any average, chart or model built on this file is wrong before you start. Worse, none of it would\n",
+    "*look* wrong: it would produce numbers, with decimal places, and nobody in the meeting would know.\n",
+    "\n",
+    "Part 1 is the routine that finds problems like these in about two minutes.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "3f5c0129",
+   "metadata": {},
+   "source": [
+    "---\n",
+    "\n",
+    "## Part 1: Descriptive Statistics — Summarising Your Data\n",
+    "\n",
+    "**Learning outcome 1:** *Summarise a dataset using descriptive statistics and identify its shape,\n",
+    "data types, and distributions.*\n",
+    "\n",
+    "**Goal:** know what you are holding before you touch it.\n",
+    "\n",
+    "⏱️ ~33 min including Group Exercise 1\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "4e0c899a",
+   "metadata": {},
+   "source": [
+    "### 1.1: The First Look — a five-move first look\n",
+    "\n",
+    "Do these five, in this order, every time you meet a new file. It takes two minutes and it is the\n",
+    "difference between analysis and guesswork.\n",
+    "\n",
+    "| Move | Question it answers |\n",
+    "|---|---|\n",
+    "| `.head()` | What do the rows actually look like? |\n",
+    "| `.shape` | How big is it? |\n",
+    "| `.info()` | What type is each column, and where are the holes? |\n",
+    "| `.dtypes` | Is anything stored as the wrong type? |\n",
+    "| `.describe()` | Are the numbers plausible? |\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "e9f1dadd",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Move 1: look at real rows. `.head()` shows the first 5 (pass a number for more).\n",
+    "#    Never skip this. Half of all data problems are visible to the naked eye.\n",
+    "raw.head()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "e105e18b",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Move 2: how big? `.shape` gives (rows, columns). No brackets -- it is a value, not a method.\n",
+    "raw.shape\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "e820c09c",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Move 3: the single most useful command in pandas. For every column it reports the\n",
+    "#    non-null count and the type. Compare each count with the row count above: the gaps are holes.\n",
+    "raw.info()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "9a6dfcf2",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Move 4: just the types. `object` means text (or mixed). Note `revenue_raw` and `date_text`\n",
+    "#    are text, not numbers and dates -- and `tickets` is a decimal, which is odd for a count.\n",
+    "raw.dtypes\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "8d2a9194",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Move 5: the numbers. Read the min and max rows first: that is where impossible values hide.\n",
+    "#    Notice which columns are MISSING from this table -- `.describe()` only sees numeric ones.\n",
+    "raw.describe()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "bd50e1de",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 `.describe()` skips text columns by default. Ask for them explicitly and you get\n",
+    "#    count / unique / top / freq -- which is where spelling variants show up.\n",
+    "raw.describe(include=\"object\")\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "5729d3c7",
+   "metadata": {},
+   "source": [
+    "**Write down what the first look found** — this is our to-do list for Part 2:\n",
+    "\n",
+    "1. **Missing values** — `revenue_raw` 3, `tickets` 2, `items` 3, `staff_on_shift` 5,\n",
+    "   `manager_email` 2, `notes` 332.\n",
+    "2. **Duplicate rows** — 366 rows, but June has only 30 dates (`date_text` shows 30 unique values),\n",
+    "   and 30 days × 4 cafés × 3 dayparts = **360** possible shifts. Six rows too many: something was\n",
+    "   sent twice.\n",
+    "3. **Wrong types** — revenue is text; the date is text; counts are decimals.\n",
+    "4. **Impossible values** — `tickets` has a minimum of **-4**, and a shift with **0** tickets that\n",
+    "   still took money.\n",
+    "5. **Twelve outlet spellings and nine daypart labels** for four cafés and three dayparts.\n",
+    "\n",
+    "Five problems, five different right answers. That is Part 2 and Part 3.\n",
+    "\n",
+    "> **Why `tickets` is a decimal.** A column of whole numbers with even one missing value cannot stay\n",
+    "> an integer, because there is no integer that means \"missing\". pandas quietly promotes the whole\n",
+    "> column to `float64`. A count stored as a decimal is therefore a *symptom*: it usually means the\n",
+    "> column has holes in it.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "146a2f5e",
+   "metadata": {},
+   "source": [
+    "### 1.2a: Those Statistics, Unpacked on Our Data\n",
+    "\n",
+    "`.describe()` is a bundle of simpler methods. Here we take them one at a time — on a slice of\n",
+    "`raw` small enough that you can check the arithmetic by hand.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "2b4ed979",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 `.loc[[...], [...]]` takes the listed rows and just two numeric columns. Small on purpose:\n",
+    "#    8 rows you can add up yourself. (`revenue_raw` cannot appear here -- it is still text.)\n",
+    "#    Row 12 is in the list deliberately: its ticket count is missing.\n",
+    "peek = raw.loc[[0, 1, 2, 3, 4, 5, 12, 13], [\"tickets\", \"items\"]]\n",
+    "\n",
+    "peek\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "c13cd3b9",
+   "metadata": {},
+   "source": [
+    "**Reductions** — a whole column in, one number out. By default they work *down* the rows.\n",
+    "\n",
+    "Note the hole in row 12 of `tickets`: watch what each method does with it.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "099afb3f",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Total tickets sold and total items bought, across these 8 shifts.\n",
+    "#    One number per column comes back.\n",
+    "peek.sum()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "20701bdb",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 The averages. `tickets` has 7 values, not 8, so `.mean()` divides by 7 -- it divides by\n",
+    "#    the number of values *present*. That is either exactly what you want or a silent bug,\n",
+    "#    depending on why the value is missing.\n",
+    "peek.mean()\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "658418b7",
+   "metadata": {},
+   "source": [
+    "**`skipna` — what to do about the hole.** By default pandas ignores missing values and\n",
+    "carries on. That is convenient, and it is also how a hole becomes invisible.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "ae622f0f",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 `skipna=False` refuses to silently work around the hole. `tickets` becomes NaN;\n",
+    "#    `items` still has a real total. Now you can *see* which column had a gap.\n",
+    "peek.sum(skipna=False)\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "da2df149",
+   "metadata": {},
+   "source": [
+    "**Indirect statistics:** finding *where* the max or min value sits (the row label).\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "0caaff8f",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Not the biggest *value* -- the row *label* where it sits. Combine it with `.loc[...]`\n",
+    "#    to pull the whole row out and look at the shift that did it.\n",
+    "peek[\"items\"].idxmax()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "1263533b",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Same for the minimum, on both columns at once.\n",
+    "peek.idxmin()\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "12c45caa",
+   "metadata": {},
+   "source": [
+    "**Accumulations:** running totals.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "69c915a5",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 A running total: each row is itself plus everything above it. Read the bottom row of\n",
+    "#    `items` -- that is the same number `.sum()` gave you.\n",
+    "peek.cumsum()\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "379349ec",
+   "metadata": {},
+   "source": [
+    "**`.describe()` — the bundle.** Everything above, in one call. You met it as move 5 of the first look.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "ccb212fb",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 All of the above in one call, plus the quartiles. This is why `.describe()` is move 5\n",
+    "#    and not five separate commands.\n",
+    "peek.describe()\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "dec0276f",
+   "metadata": {},
+   "source": [
+    "**Categorical / non-numeric data:** `.describe()` behaves differently for text, showing counts\n",
+    "and the most frequent value rather than means.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "aadf2bb3",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 A Series is a single column of data. This one holds text, so `.describe()` switches to\n",
+    "#    count / unique / top / freq. `top` is the most common value; `freq` is how often it appears.\n",
+    "raw[\"outlet\"].describe()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "f2645679",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 List the distinct values, in the order they first appear. Duplicates are dropped.\n",
+    "raw[\"outlet\"].unique()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "5887371e",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Count how many times each distinct value appears, most frequent first.\n",
+    "raw[\"outlet\"].value_counts()\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "3eccc8ed",
+   "metadata": {},
+   "source": [
+    "### 1.2b: The `axis` Sandbox — a deliberately meaningless table\n",
+    "\n",
+    "One piece of notation left: **`axis`**. Every reduction can run *down* the rows (the default) or\n",
+    "*across* the columns. This drill uses a made-up table, because on real data one of the two\n",
+    "directions is usually nonsense — and it is easier to see the mechanics when nothing is at stake.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "4483bfce",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Build a small table by hand. The outer [ ] is a list of rows; each inner [ ] is one row.\n",
+    "#    `np.nan` is how you write a missing value.\n",
+    "demo = pd.DataFrame(\n",
+    "    [[1.4, np.nan], [7.1, -4.5], [np.nan, np.nan], [0.75, -1.3]],\n",
+    "    index=[\"a\", \"b\", \"c\", \"d\"],\n",
+    "    columns=[\"one\", \"two\"],\n",
+    ")\n",
+    "\n",
+    "demo\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "9edb0c06",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Add up each column, top to bottom. One number comes back per column.\n",
+    "demo.sum()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "ccaf3575",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Same addition, but sideways: add across each row. `axis=\"columns\"` means 'go across'.\n",
+    "demo.sum(axis=\"columns\")\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "6fe1ecce",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 `skipna=False` says 'do NOT ignore missing values'. Any NaN in a column poisons its total.\n",
+    "demo.sum(skipna=False)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "27505a6e",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Same idea going across the rows instead of down the columns.\n",
+    "demo.sum(axis=1, skipna=False)\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "0b8eae2e",
+   "metadata": {},
+   "source": [
+    "**Back to reality.** On our café export, `axis=\"columns\"` is almost always wrong —\n",
+    "`tickets + staff_on_shift` is not a quantity that exists. Adding *down* a column\n",
+    "(\"total tickets in June\") is the meaningful direction. Know both; reach for the first.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "15174146",
+   "metadata": {},
+   "source": [
+    "### 🛠️ Group Exercise 1 — Summarising (8 min)\n",
+    "\n",
+    "The scaffold fades: task (a) is done for you, (b) is half-written, (c) and (d) are yours.\n",
+    "\n",
+    "> **(a) Worked for you** — the cell below sorts a count table by its label instead of by count.\n",
+    "> Read it, then run it.\n",
+    ">\n",
+    "> **(b) Fill in the blanks** — sort the outlet counts by frequency, *smallest first*:\n",
+    "> ```python\n",
+    "> raw[\"outlet\"].value_counts().sort_______(ascending=____)\n",
+    "> ```\n",
+    "> *Expected:* 12 rows, smallest count at the top.\n",
+    ">\n",
+    "> **(c) From scratch** — which shift sold the most items? Use `.idxmax()` on `raw[\"items\"]` to get\n",
+    "> the row label, then `.loc[...]` to pull that whole row out.\n",
+    "> *Expected:* one row — the morning of Tuesday 10 June at Raffles Place, with 336 items.\n",
+    ">\n",
+    "> **(d) Explain, no code** — `raw.info()` reports 364 non-null values for `tickets` but the table\n",
+    "> has 366 rows. Where did the other 2 go, and why is showing them as missing better than showing 0?\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "e1ebfc6f",
+   "metadata": {},
+   "source": [
+    "**(a) Worked example** — count, then sort by label:\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "f21e8ee4",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 `.sort_index()` re-sorts that count table by the label (alphabetically) instead of by count.\n",
+    "#    Reading right to left: count the values, then sort the result.\n",
+    "raw[\"daypart\"].value_counts().sort_index()\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "f017d057",
+   "metadata": {},
+   "source": [
+    "---\n",
+    "\n",
+    "# ☕ Break — 10 minutes\n",
+    "\n",
+    "**Where we are:** you can now describe *what* a dataset looks like.\n",
+    "**Next up:** Part 2 — fixing what is wrong with it (missing values, duplicates, impossible values).\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "0e411686",
+   "metadata": {},
+   "source": [
+    "---\n",
+    "\n",
+    "## Part 2: Data Quality — Missing Data, Duplicates & Impossible Values\n",
+    "\n",
+    "**Learning outcome 2:** *Handle missing values, duplicates, and outliers using appropriate Pandas\n",
+    "methods.*\n",
+    "\n",
+    "**Goal:** work through the five problems on the Part 1 to-do list. Every fix follows the same four\n",
+    "beats — **find it → decide → apply → verify** — and that habit is worth more than any single method.\n",
+    "\n",
+    "⏱️ ~42 min including Group Exercise 2\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "cdd77cd1",
+   "metadata": {},
+   "source": [
+    "### 2.0: One type fix first\n",
+    "\n",
+    "We cannot check whether the takings are plausible while they are **text**. This is the one line of\n",
+    "string-cleaning we need up front; the full toolkit is section 3.3.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "d5bcec68",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 `.copy()` makes an independent table, so `raw` stays as the untouched original --\n",
+    "#    which is what lets us compare \"before and after\" at the end of the session.\n",
+    "clean = raw.copy()\n",
+    "\n",
+    "# 👉 Strip out everything that is not a digit, a dot or a minus sign: \"S$1,240.50\" -> \"1240.50\".\n",
+    "#    `regex=True` says \"the thing I am searching for is a pattern, not literal text\".\n",
+    "#    `to_numeric` then turns that text into a real number; `errors=\"coerce\"` puts NaN\n",
+    "#    wherever the text could not be read as a number at all.\n",
+    "clean[\"revenue_sgd\"] = pd.to_numeric(\n",
+    "    clean[\"revenue_raw\"].str.replace(r\"[^0-9.\\-]\", \"\", regex=True), errors=\"coerce\"\n",
+    ")\n",
+    "\n",
+    "clean[[\"revenue_raw\", \"revenue_sgd\"]].head()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "87dbdf29",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 NOW `.describe()` can see the money column. Read the min and the max.\n",
+    "clean[\"revenue_sgd\"].describe()\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "c63641dc",
+   "metadata": {},
+   "source": [
+    "> **There it is.** A minimum of **-999** and a maximum of **98,000**, in a business whose busiest\n",
+    "> shift takes about \\$1,000. Neither is a real number:\n",
+    ">\n",
+    "> - **-999** is a *sentinel* — the old till wrote it when a shift failed to close off. It means\n",
+    ">   \"no reading\", not \"minus nine hundred and ninety-nine dollars\".\n",
+    "> - **98,000** is a keying error: someone typed `98000` for a shift that took about \\$980.\n",
+    ">\n",
+    "> Both were completely invisible while the column was text. This is why move 4 of the first look\n",
+    "> (`.dtypes`) exists.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "c1b6ff03",
+   "metadata": {},
+   "source": [
+    "### 2.1: Handling Missing Data\n",
+    "\n",
+    "Missing data shows up as `NaN` (Not a Number) or `None`.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "d2c57d09",
+   "metadata": {},
+   "source": [
+    "**Step 1 — find the holes on our own dataset.**\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "6c45060d",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 `.isna()` marks every cell True/False for \"is this missing?\". Chaining `.sum()`\n",
+    "#    counts the Trues per column, because True counts as 1.\n",
+    "clean.isna().sum()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "4e6a36dd",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 But look at `notes` more closely. Some cells say \"N.A.\" or \"-\" -- which a human reads as\n",
+    "#    empty and pandas reads as ordinary text. Fake blanks are worse than real ones: they are\n",
+    "#    invisible to `.isna()`.\n",
+    "clean[\"notes\"].value_counts(dropna=False)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "32a39c9f",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Turn the fake blanks into real ones, so `.isna()` tells the truth from here on.\n",
+    "clean[\"notes\"] = clean[\"notes\"].replace([\"N.A.\", \"-\"], np.nan)\n",
+    "\n",
+    "print(\"missing notes before: 332\")\n",
+    "print(\"missing notes after: \", clean[\"notes\"].isna().sum())\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "6542eb87",
+   "metadata": {},
+   "source": [
+    "**Step 2 — decide, column by column.** There is no single right answer, only defensible ones:\n",
+    "\n",
+    "| Column | Holes | Decision | Why |\n",
+    "|---|---|---|---|\n",
+    "| `notes` | 362 | leave as `NaN` | \"no note\" is genuinely no information; do not invent one |\n",
+    "| `manager_email` | 2 | leave as `NaN` | you cannot guess an email address |\n",
+    "| `staff_on_shift` | 5 | fill with the **median** | staffing is fairly consistent; a typical value is a fair guess |\n",
+    "| `items` | 3 | fill with the **median** | same reasoning |\n",
+    "| `revenue_sgd` | 3 | **wait** | the sentinels must go first, or the median is poisoned |\n",
+    "| `tickets` | 2 | **wait** | there are impossible values in here too |\n",
+    "\n",
+    "The last two rows are the lesson. **Order matters**, and section 2.3 is where it bites.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "d2b74421",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Apply the two easy decisions. A dictionary lets you use a different filler per column.\n",
+    "#    `.median()` is the middle value, which ignores lopsided extremes -- safer than the mean.\n",
+    "clean = clean.fillna({\n",
+    "    \"staff_on_shift\": clean[\"staff_on_shift\"].median(),\n",
+    "    \"items\": clean[\"items\"].median(),\n",
+    "})\n",
+    "\n",
+    "clean[[\"staff_on_shift\", \"items\"]].isna().sum()\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "8f1656bc",
+   "metadata": {},
+   "source": [
+    "Drills on smaller data follow, so you can see each method in isolation.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "426dc382",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 A Series of numbers where one entry is missing.\n",
+    "float_data = pd.Series([1.2, -3.5, np.nan, 0])\n",
+    "\n",
+    "float_data\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "a1a06eb1",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 `.isna()` answers 'is this one missing?' for every entry: True means missing.\n",
+    "float_data.isna()\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "ae389338",
+   "metadata": {},
+   "source": [
+    "The built-in Python `None` value is also treated as missing in pandas object columns.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "fc7609af",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Python's own `None` also counts as missing, alongside `np.nan`.\n",
+    "string_data = pd.Series([\"aardvark\", np.nan, None, \"avocado\"])\n",
+    "\n",
+    "string_data\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "bc977d90",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Proof: both `np.nan` and `None` come back as True.\n",
+    "string_data.isna()\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "70867abb",
+   "metadata": {},
+   "source": [
+    "### Strategy 1: Dropping Missing Data (`dropna`)\n",
+    "\n",
+    "The simplest strategy is to remove the rows or columns that contain missing values.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "735ad78c",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 `.dropna()` returns a copy with the missing entries removed. The original is unchanged --\n",
+    "#    nothing in pandas edits in place unless you assign the result back.\n",
+    "float_data.dropna()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "4448dcac",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 The manual version of the same thing: `notna()` marks the good rows, and putting that\n",
+    "#    True/False mask in square brackets keeps only the True ones.\n",
+    "float_data[float_data.notna()]\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "f0e24e6f",
+   "metadata": {},
+   "source": [
+    "With DataFrames, `dropna` by default drops **any row** containing **any** missing value.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "8b85a42a",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 A 4-row table with missing values scattered around.\n",
+    "demo_df = pd.DataFrame([[1., 6.5, 3.], [1., np.nan, np.nan],\n",
+    "                        [np.nan, np.nan, np.nan], [np.nan, 6.5, 3.]])\n",
+    "\n",
+    "demo_df\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "1e12e443",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Default behaviour: drop a row if it has *any* missing value. Harsh -- only row 0 survives.\n",
+    "demo_df.dropna()\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "4f037048",
+   "metadata": {},
+   "source": [
+    "`how=\"all\"` only drops rows where **every** value is missing.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "0714a5a8",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Gentler: only drop a row where every single value is missing.\n",
+    "demo_df.dropna(how=\"all\")\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "35648994",
+   "metadata": {},
+   "source": [
+    "To drop **columns** instead of rows, pass `axis=\"columns\"`.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "a2fbe15f",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Add a brand-new column that is entirely missing, so we have something to drop.\n",
+    "demo_df[4] = np.nan\n",
+    "\n",
+    "demo_df\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "58474034",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 `axis=\"columns\"` switches the target from rows to columns, so the all-missing column goes.\n",
+    "demo_df.dropna(axis=\"columns\", how=\"all\")\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "bb8a115a",
+   "metadata": {},
+   "source": [
+    "You can also set a **threshold**: keep only rows with at least `n` real values.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "42d797f0",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 A 7-row, 3-column table of random numbers, then poke holes in it.\n",
+    "#    `.iloc[rows, columns]` selects by position, so :4 means \"the first four rows\".\n",
+    "rng = np.random.default_rng(seed=12345)\n",
+    "holes = pd.DataFrame(rng.standard_normal((7, 3)))\n",
+    "holes.iloc[:4, 1] = np.nan\n",
+    "holes.iloc[:2, 2] = np.nan\n",
+    "\n",
+    "holes\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "6f56b57e",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 With the default settings, most rows are gone.\n",
+    "holes.dropna()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "65755e88",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 `thresh=2` means 'keep the row if it has at least 2 real (non-missing) values'.\n",
+    "holes.dropna(thresh=2)\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "ef16d187",
+   "metadata": {},
+   "source": [
+    "### Strategy 2: Filling Missing Data (`fillna`)\n",
+    "\n",
+    "Instead of losing data, fill the holes with a constant or a calculated value.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "81dc6465",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 `.fillna()` plugs every hole with a value instead of deleting the row.\n",
+    "holes.fillna(0)\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "3d306080",
+   "metadata": {},
+   "source": [
+    "You can specify a different fill value for each column:\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "a6243545",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Pass a dictionary to use a different filler per column: {column_name: fill_value}.\n",
+    "holes.fillna({1: 0.5, 2: 0})\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "4489abcf",
+   "metadata": {},
+   "source": [
+    "**Forward / backward fill:** carry a neighbouring value into the gap. Common with time series.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "9a5fddba",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 `bfill` = backward fill: copy the next real value upwards into the gap.\n",
+    "holes.bfill()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "bfcc6b2b",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 `limit=2` stops the copying after 2 rows, so long gaps are not silently invented.\n",
+    "holes.bfill(limit=2)\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "cbd400ae",
+   "metadata": {},
+   "source": [
+    "**Imputation:** filling with the mean or median is a very common technique.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "44af2dd2",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 A small Series with two holes in it.\n",
+    "s_holes = pd.Series([1., np.nan, 3.5, np.nan, 7])\n",
+    "\n",
+    "s_holes\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "782e4bd1",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 'Imputation': fill the holes with the average of the values we do have.\n",
+    "#    `s_holes.mean()` is computed from the 3 real values only.\n",
+    "s_holes.fillna(s_holes.mean())\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "15597ac6",
+   "metadata": {},
+   "source": [
+    "### 2.2: Handling Duplicates\n",
+    "\n",
+    "Duplicate rows inflate every total built from them. The first look said 366 rows for a month that can\n",
+    "only contain 360 outlet-day-daypart combinations.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "53a5f1a7",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 `.duplicated()` flags a row True if an identical row appeared earlier.\n",
+    "#    `.sum()` counts them.\n",
+    "clean.duplicated().sum()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "faf6bff1",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Show the offending rows so you can eyeball them before deleting anything.\n",
+    "#    `keep=False` marks *both* copies, not just the later one, so they sit together.\n",
+    "clean[clean.duplicated(keep=False)].sort_values([\"date_text\", \"outlet\", \"daypart\"]).head(8)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "a2ad93bc",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Genuine full-row copies, so drop them. Assign back for the change to stick.\n",
+    "clean = clean.drop_duplicates()\n",
+    "\n",
+    "clean.shape\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "21efeb7a",
+   "metadata": {},
+   "source": [
+    "360 rows. **Note the safer habit:** here the whole row was identical, so `drop_duplicates()` is\n",
+    "enough. In real exports the same shift is often sent twice with a *corrected* figure, and then the\n",
+    "rows are not identical — you have to say which columns identify a shift, and which copy to keep.\n",
+    "\n",
+    "Check it explicitly:\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "0ed0d3af",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 A shift is identified by outlet + date + daypart. After de-duplicating there should be\n",
+    "#    exactly one row per combination -- but the outlet column is still spelled 12 ways,\n",
+    "#    so this check cannot pass until Part 3 fixes that. Try it and see.\n",
+    "clean.duplicated(subset=[\"date_text\", \"outlet\", \"daypart\"]).sum()\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "01a13464",
+   "metadata": {},
+   "source": [
+    "> **Read that number carefully.** It is 0 — and that is *not* reassuring. Every \"Marina Bay\" row\n",
+    "> and every \"marina bay\" row look like different outlets to pandas, so a genuine double-submission\n",
+    "> under two spellings would slip straight through this check. **You cannot de-duplicate reliably\n",
+    "> until the key columns are standardised**, which is Part 3. Note it down and come back.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "b5be1258",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Build a table from a dictionary: each key becomes a column name, each list becomes a column.\n",
+    "dupes = pd.DataFrame({\"k1\": [\"one\", \"two\"] * 3 + [\"two\"], \"k2\": [1, 1, 2, 3, 3, 4, 4]})\n",
+    "\n",
+    "dupes\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "2fa59d42",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 For each row: 'have I already seen this exact row above?' True means it is a repeat.\n",
+    "dupes.duplicated()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "18f44522",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Keep only the first appearance of each row and throw the repeats away.\n",
+    "dupes.drop_duplicates()\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "ab92883b",
+   "metadata": {},
+   "source": [
+    "**Subset:** sometimes you only care about duplicates in specific columns.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "ba3fb8a7",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Add a column of running numbers so we can see which rows survive the next steps.\n",
+    "dupes[\"v1\"] = range(7)\n",
+    "\n",
+    "dupes\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "dca82783",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 `subset=` narrows the comparison: rows count as duplicates if column k1 matches,\n",
+    "#    even where v1 differs. This is the version you want for \"same shift, sent twice\".\n",
+    "dupes.drop_duplicates(subset=[\"k1\"])\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "a0ced9bb",
+   "metadata": {},
+   "source": [
+    "**Keep:** by default pandas keeps the first occurrence. Keep the last instead with `keep=\"last\"`.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "939f3dd8",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 With a corrected re-submission, the LAST copy is usually the one you want.\n",
+    "dupes.drop_duplicates(subset=[\"k1\", \"k2\"], keep=\"last\")\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "3426f10a",
+   "metadata": {},
+   "source": [
+    "### 2.3: Handling Impossible Values and Outliers\n",
+    "\n",
+    "An **outlier** is a value far from the rest. Some are real and important; some are errors. The\n",
+    "question is never \"is it extreme?\" but **\"is it possible?\"**\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "b9239da5",
+   "metadata": {},
+   "source": [
+    "**On our dataset:** four impossible-value problems, and they need different treatments.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "44ca3e34",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Boolean filtering: build a True/False test, put it in the square brackets, and only\n",
+    "#    the True rows come back. `|` means OR.\n",
+    "impossible = clean[\n",
+    "    (clean[\"revenue_sgd\"] < 0) | (clean[\"revenue_sgd\"] > 20000) | (clean[\"tickets\"] <= 0)\n",
+    "]\n",
+    "\n",
+    "impossible[[\"outlet\", \"date_text\", \"daypart\", \"revenue_sgd\", \"tickets\"]]\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "c6fede5f",
+   "metadata": {},
+   "source": [
+    "Eight rows, four different problems, four different right answers:\n",
+    "\n",
+    "| What you see | What it means | Decision |\n",
+    "|---|---|---|\n",
+    "| `revenue_sgd` = **-999** (×4) | sentinel: the till failed to close off | not a number at all → `NaN`, then fill |\n",
+    "| `revenue_sgd` = **98,000** | keyed `98000` for about `980.00` | we cannot recover it → `NaN`, then fill |\n",
+    "| `tickets` = **0** with revenue > 0 | money taken, no receipts counted | impossible combination → `NaN`, then fill |\n",
+    "| `tickets` = **-4** | a negative count of customers | impossible → `NaN`, then fill |\n",
+    "\n",
+    "Notice that all four end in `NaN`. **That is deliberate:** turning a wrong number into an explicit\n",
+    "hole is honest, and it hands the decision to the fill step where you have to state your reasoning.\n",
+    "Silently overwriting it with a plausible-looking number is how bad data survives.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "2873b600",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 `.mask(condition)` replaces values where the condition is True with NaN.\n",
+    "#    Read it as \"hide the values I cannot believe\".\n",
+    "clean[\"revenue_sgd\"] = clean[\"revenue_sgd\"].mask(\n",
+    "    (clean[\"revenue_sgd\"] < 0) | (clean[\"revenue_sgd\"] > 20000)\n",
+    ")\n",
+    "clean[\"tickets\"] = clean[\"tickets\"].mask(clean[\"tickets\"] <= 0)\n",
+    "\n",
+    "clean[[\"revenue_sgd\", \"tickets\"]].describe()\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "7615db2e",
+   "metadata": {},
+   "source": [
+    "Now the ranges are plausible — and we have created new holes on purpose. Eight shifts need a value:\n",
+    "the four sentinels, the mis-keyed \\$98,000, and the three that were blank from the start.\n",
+    "\n",
+    "**Fill them in the right order — sentinels out first, statistic second.** The next cell shows exactly\n",
+    "how much that order is worth, and the answer is more interesting than \"a lot\".\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "c9c9a7d7",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 What the ordering is actually worth. Compare the statistic computed BEFORE masking\n",
+    "#    (with -999 and 98,000 still in the column) against the same statistic computed after.\n",
+    "#    (`raw.drop_duplicates()` first, so we are comparing like with like -- the duplicated\n",
+    "#     batch is already out of `clean`.)\n",
+    "before = pd.to_numeric(\n",
+    "    raw.drop_duplicates()[\"revenue_raw\"].str.replace(r\"[^0-9.\\-]\", \"\", regex=True),\n",
+    "    errors=\"coerce\",\n",
+    ")\n",
+    "\n",
+    "print(f\"median before masking: ${before.median():>8,.2f}   after: ${clean['revenue_sgd'].median():>8,.2f}\")\n",
+    "print(f\"mean   before masking: ${before.mean():>8,.2f}   after: ${clean['revenue_sgd'].mean():>8,.2f}\")\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "ca983757",
+   "metadata": {},
+   "source": [
+    "> **Read those two lines carefully — they are the real lesson.**\n",
+    ">\n",
+    "> The **median** barely moves: \\$456 → \\$463. That is not luck; it is the whole reason a median is\n",
+    "> the safer default. It looks at the middle of the sorted values, so four absurd lows and one absurd\n",
+    "> high hardly shift it.\n",
+    ">\n",
+    "> The **mean** moves from \\$742 to \\$486. Had you filled with the mean in the wrong order, all eight\n",
+    "> filled shifts would have been **53% too high**, and the month's total would have been overstated by\n",
+    "> thousands.\n",
+    ">\n",
+    "> So the rule is not \"the median gets poisoned\" — it is: **mask first, then compute, because you\n",
+    "> cannot see from the outside which case you are in.** Today the median gave you a safety net. The\n",
+    "> next dataset might have thirty sentinels instead of four, and then even the median moves. Order the\n",
+    "> steps correctly and you never have to know.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "b7124818",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Median, not mean, for exactly the reason above. (In Lesson 1.9 you will learn to fill per\n",
+    "#    outlet and daypart, which is finer and better; a single median is honest enough for now.)\n",
+    "clean = clean.fillna({\n",
+    "    \"revenue_sgd\": clean[\"revenue_sgd\"].median(),\n",
+    "    \"tickets\": clean[\"tickets\"].median(),\n",
+    "})\n",
+    "\n",
+    "print(\"holes left in revenue_sgd:\", clean[\"revenue_sgd\"].isna().sum())\n",
+    "print(\"holes left in tickets:    \", clean[\"tickets\"].isna().sum())\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "85d058c1",
+   "metadata": {},
+   "source": [
+    "**Compare with the original to see what cleaning bought us:**\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "b382c052",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 The same question asked of the dirty file and the clean one. This is the number that\n",
+    "#    would have gone into the owner's report.\n",
+    "dirty_total = pd.to_numeric(\n",
+    "    raw[\"revenue_raw\"].str.replace(r\"[^0-9.\\-]\", \"\", regex=True), errors=\"coerce\"\n",
+    ").sum()\n",
+    "\n",
+    "print(f\"June revenue, raw file:   ${dirty_total:,.2f}\")\n",
+    "print(f\"June revenue, cleaned:    ${clean['revenue_sgd'].sum():,.2f}\")\n",
+    "print(f\"difference:               ${dirty_total - clean['revenue_sgd'].sum():,.2f}\")\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "84cab3ca",
+   "metadata": {},
+   "source": [
+    "> **The raw file overstates June by more than \\$90,000 — about 52%.** One mis-keyed shift did most\n",
+    "> of it, six duplicated rows added more, and four sentinels quietly pulled in the other direction.\n",
+    ">\n",
+    "> Every one of those was a two-line fix. None of them announced itself. A report built on the raw\n",
+    "> file would have told the owner her chain had its best month ever.\n",
+    "\n",
+    "Drills on random data follow, where the mechanics are easier to see.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "f576b2e1",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 1000 rows of random numbers shaped like a bell curve, so most values sit near 0.\n",
+    "#    Values beyond about ±3 are rare by construction -- which makes them useful practice outliers.\n",
+    "spread = pd.DataFrame(np.random.default_rng(seed=12345).standard_normal((1000, 4)))\n",
+    "\n",
+    "spread.describe()\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "ae272c0f",
+   "metadata": {},
+   "source": [
+    "**Detection:** find values more than 3 away from zero.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "a3b89c74",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Grab one column, then keep only the entries more than 3 away from zero.\n",
+    "#    `.abs()` ignores the sign, so it catches both tails at once.\n",
+    "col = spread[2]\n",
+    "\n",
+    "col[col.abs() > 3]\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "3611e167",
+   "metadata": {},
+   "source": [
+    "To find **any row** with an outlier in **any column**, use `.any(axis=\"columns\")`.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "5982e204",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Same test applied to the whole table. `.any(axis=\"columns\")` asks, per row,\n",
+    "#    'was there at least one True?'\n",
+    "spread[(spread.abs() > 3).any(axis=\"columns\")]\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "9b3e9a72",
+   "metadata": {},
+   "source": [
+    "**Capping:** instead of removing outliers, pull them back to a threshold.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "acf3256c",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 'Capping': pull extreme values back to the ±3 boundary instead of deleting the row.\n",
+    "#    `np.sign` keeps the direction (-1 or +1) so a low outlier becomes -3, not +3.\n",
+    "spread[spread.abs() > 3] = np.sign(spread) * 3\n",
+    "\n",
+    "spread.describe()\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "fa4d512c",
+   "metadata": {},
+   "source": [
+    "**Removal:** or drop the rows entirely.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "25702db1",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 The other option -- 'trimming': keep only rows where every column is within bounds.\n",
+    "#    `~` flips True/False, so this reads \"not (any column out of bounds)\".\n",
+    "spread[~(spread.abs() > 2.9).any(axis=\"columns\")].shape\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "165fa287",
+   "metadata": {},
+   "source": [
+    "### 🛠️ Group Exercise 2 — Data Quality (12 min)\n",
+    "\n",
+    "Same fading. Work on `practice` (created below) — a small random table with holes punched in it,\n",
+    "so every change is visible.\n",
+    "\n",
+    "> **(a) Worked for you** — run the cell below and read the comment.\n",
+    ">\n",
+    "> **(b) Fill in the blanks** — drop only the rows with *fewer than 2* real values:\n",
+    "> ```python\n",
+    "> practice.dropna(______=2)\n",
+    "> ```\n",
+    "> *Expected:* 5 of the 6 rows survive.\n",
+    ">\n",
+    "> **(c) From scratch** — fill the holes in column `b` with that column's median, leaving the other\n",
+    "> columns untouched. *Hint:* `.fillna({...})` takes a dictionary.\n",
+    ">\n",
+    "> **(d) On the real data, from scratch** — how many rows of `raw` had a `revenue_raw` value that\n",
+    "> could not be read as a number at all? *Hint:* re-run the `to_numeric(..., errors=\"coerce\")` line\n",
+    "> on `raw` and count the NaNs. Then say, in one sentence, why `errors=\"coerce\"` is safer than\n",
+    "> letting the conversion raise an error.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "c2aa8a7b",
+   "metadata": {},
+   "source": [
+    "**(a)–(c)** use the `practice` table below.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "3f171d3d",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Practice data for the exercise: 6 rows of random numbers with holes punched in three\n",
+    "#    places. `.iloc[row, column]` selects one cell by position.\n",
+    "practice = pd.DataFrame(\n",
+    "    np.random.default_rng(seed=7).standard_normal((6, 3)).round(2), columns=[\"a\", \"b\", \"c\"]\n",
+    ")\n",
+    "practice.iloc[0, 1] = np.nan\n",
+    "practice.iloc[2, 1] = np.nan\n",
+    "practice.iloc[4, [0, 1, 2]] = np.nan\n",
+    "\n",
+    "practice\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "11675ce7",
+   "metadata": {},
+   "source": [
+    "> **Stuck?** Every method you need appeared in 2.1–2.3 above. The pattern is always: build the\n",
+    "> test → look at what it catches → apply the fix → verify with `.isna().sum()`.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "2384e6a2",
+   "metadata": {},
+   "source": [
+    "---\n",
+    "\n",
+    "# ☕ Break — 10 minutes\n",
+    "\n",
+    "**Where we are:** the numbers are now plausible and the duplicates are gone.\n",
+    "**Next up:** Part 3 — the text columns, the dates, and the answer the owner actually asked for.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "37aff5ee",
+   "metadata": {},
+   "source": [
+    "---\n",
+    "\n",
+    "## Part 3: Data Transformation\n",
+    "\n",
+    "**Learning outcome 3:** *Transform data through type conversion, string cleaning, and categorical\n",
+    "encoding.*\n",
+    "\n",
+    "**Goal:** `clean` now has believable numbers, but you still cannot group by outlet (twelve\n",
+    "spellings), ask a date question (the date is text), or produce a per-outlet summary. That is this\n",
+    "section.\n",
+    "\n",
+    "⏱️ ~35 min including Group Exercise 3\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "71870f44",
+   "metadata": {},
+   "source": [
+    "### 3.1: Transforming Data (Mapping)\n",
+    "\n",
+    "A **mapping** is a lookup table: for each messy value, the value you want instead.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "d27f7955",
+   "metadata": {},
+   "source": [
+    "**On our dataset:** twelve outlet spellings for four cafés, and nine daypart labels for three\n",
+    "dayparts. A dictionary maps every messy spelling to the one we want.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "8a05298f",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ===== 🏪 REAL DATASET (`clean`) — our coffee-shop data =====\n",
+    "# 👉 See the mess in full before writing the mapping. `.unique()` lists distinct values.\n",
+    "clean[\"outlet\"].unique()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "685abc0d",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ===== 🏪 REAL DATASET (`clean`) — our coffee-shop data =====\n",
+    "# 👉 A dictionary is a lookup table: {what_is_in_the_data: what_we_want}.\n",
+    "#    Writing it out by hand is not inelegant -- it is a record of a business decision.\n",
+    "outlet_map = {\n",
+    "    \"Raffles Place\": \"Raffles Place\",\n",
+    "    \"raffles place\": \"Raffles Place\",\n",
+    "    \"RAFFLES PLACE\": \"Raffles Place\",\n",
+    "    \"Raffles Pl.\": \"Raffles Place\",\n",
+    "    \"Tampines Mall\": \"Tampines Mall\",\n",
+    "    \"tampines mall\": \"Tampines Mall\",\n",
+    "    \"Tampines  Mall\": \"Tampines Mall\",\n",
+    "    \"Marina Bay\": \"Marina Bay\",\n",
+    "    \"marina bay\": \"Marina Bay\",\n",
+    "    \"Marina Bay \": \"Marina Bay\",\n",
+    "    \"Holland Village\": \"Holland Village\",\n",
+    "    \"Holland V\": \"Holland Village\",\n",
+    "}\n",
+    "\n",
+    "clean[\"outlet_name\"] = clean[\"outlet\"].map(outlet_map)\n",
+    "\n",
+    "clean[\"outlet_name\"].value_counts()\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "a5d957d3",
+   "metadata": {},
+   "source": [
+    "Four cafés. **A warning worth internalising:** if a thirteenth spelling appears next month,\n",
+    "`.map()` turns it into `NaN` silently. Always check afterwards.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "b5e7ba03",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ===== 🏪 REAL DATASET (`clean`) — our coffee-shop data =====\n",
+    "# 👉 The check that catches a spelling you did not know about.\n",
+    "#    If this is not 0, something in the outlet column was not in your dictionary.\n",
+    "clean[\"outlet_name\"].isna().sum()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "2e7cf6c4",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ===== 🏪 REAL DATASET (`clean`) — our coffee-shop data =====\n",
+    "# 👉 The daypart column has the same problem, and gets the same treatment.\n",
+    "daypart_map = {\n",
+    "    \"Morning\": \"Morning\", \"morning\": \"Morning\", \"AM\": \"Morning\",\n",
+    "    \"Midday\": \"Midday\", \"midday\": \"Midday\", \"Lunch\": \"Midday\",\n",
+    "    \"Evening\": \"Evening\", \"evening\": \"Evening\", \"PM\": \"Evening\",\n",
+    "}\n",
+    "\n",
+    "clean[\"daypart\"] = clean[\"daypart\"].map(daypart_map)\n",
+    "\n",
+    "clean[\"daypart\"].value_counts()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "e8af1e11",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ===== 🏪 REAL DATASET (`clean`) — our coffee-shop data =====\n",
+    "# 👉 And now the duplicate check from 2.2 can finally do its job: one row per outlet,\n",
+    "#    per date, per daypart. This is the check that was meaningless before the mapping.\n",
+    "clean.duplicated(subset=[\"date_text\", \"outlet_name\", \"daypart\"]).sum()\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "f653a3ba",
+   "metadata": {},
+   "source": [
+    "Drills on smaller examples follow.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "1bdc1ea8",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 A tiny table of foods and weights, built from a dictionary of column-name: values.\n",
+    "foods = pd.DataFrame({\n",
+    "    \"food\": [\"bacon\", \"pulled pork\", \"bacon\", \"pastrami\", \"corned beef\", \"bacon\", \"pastrami\"],\n",
+    "    \"ounces\": [4, 3, 12, 6, 7.5, 8, 3],\n",
+    "})\n",
+    "\n",
+    "foods\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "cc557d4c",
+   "metadata": {},
+   "source": [
+    "**Scenario:** add a column showing the animal each food came from.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "b8587083",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 A dictionary = a lookup table. Given a food (the key) it hands back an animal (the value).\n",
+    "meat_to_animal = {\n",
+    "    \"bacon\": \"pig\", \"pulled pork\": \"pig\", \"pastrami\": \"cow\", \"corned beef\": \"cow\",\n",
+    "}\n",
+    "\n",
+    "meat_to_animal\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "3ce3bcb4",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 `.map()` walks down the food column and swaps each value for its dictionary match.\n",
+    "#    Assign the result to a new column so the original stays intact.\n",
+    "foods[\"animal\"] = foods[\"food\"].map(meat_to_animal)\n",
+    "\n",
+    "foods\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "b005b953",
+   "metadata": {},
+   "source": [
+    "You can also pass a **function** to `map()` for custom logic.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "d89873fe",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 `.map()` also accepts a function. `def` defines one: it takes an input x and returns\n",
+    "#    the looked-up value. Same result, more flexible.\n",
+    "def get_animal(x):\n",
+    "    return meat_to_animal[x]\n",
+    "\n",
+    "foods[\"food\"].map(get_animal)\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "b9d499f1",
+   "metadata": {},
+   "source": [
+    "**Replacing values:** `replace` is a specialised version of `map`, ideal for sentinel values.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "92d861a3",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 Some systems use a fake number like -999 to mean 'nothing recorded' -- exactly like\n",
+    "#    the till in our own dataset.\n",
+    "sentinel_s = pd.Series([1., -999., 2., -999., -1000., 3.])\n",
+    "\n",
+    "sentinel_s\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "3a6489ce",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 `.replace()` swaps one value for another -- here, the fake code becomes a proper NaN.\n",
+    "sentinel_s.replace(-999, np.nan)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "7f7d9880",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 Pass a list to replace several values with the same thing in one go.\n",
+    "sentinel_s.replace([-999, -1000], np.nan)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "18a8344d",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 Two lists of equal length: first list is what to find, second is what to put in its place.\n",
+    "sentinel_s.replace([-999, -1000], [np.nan, 0])\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "db54ab93",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 The clearest form: a dictionary of {old_value: new_value}. Same result, easier to read.\n",
+    "sentinel_s.replace({-999: np.nan, -1000: 0})\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "02f6a317",
+   "metadata": {},
+   "source": [
+    "> **`.map()` vs `.replace()` — say which behaviour you want before you pick.**\n",
+    "> `.map()` needs an entry for *every* value and turns anything unlisted into `NaN`.\n",
+    "> `.replace()` changes only what you list and leaves everything else alone.\n",
+    "> For standardising a column with a known set of values, `.map()`'s strictness is a feature: it\n",
+    "> tells you when something new shows up.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "219599ac",
+   "metadata": {},
+   "source": [
+    "### 3.2: Renaming Axis Labels\n",
+    "\n",
+    "Changing row and column labels, using the same mapping idea.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "9667d515",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 A 3x4 table of the numbers 0-11. `np.arange(12)` makes 0..11 in a line and\n",
+    "#    `.reshape((3, 4))` folds it into 3 rows of 4.\n",
+    "labels = pd.DataFrame(\n",
+    "    np.arange(12).reshape((3, 4)),\n",
+    "    index=[\"Tampines\", \"Bishan\", \"Yishun\"],\n",
+    "    columns=[\"one\", \"two\", \"three\", \"four\"],\n",
+    ")\n",
+    "\n",
+    "labels\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "612082f3",
+   "metadata": {},
+   "source": [
+    "Using `.map()` on the index:\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "a5a0b749",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 A function that shortens a label to its first 4 characters and upper-cases it.\n",
+    "#    `x[:4]` takes characters 0 to 3.\n",
+    "def shorten(x):\n",
+    "    return x[:4].upper()\n",
+    "\n",
+    "labels.index.map(shorten)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "fa39b0fe",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 `.index.map()` applies that function to every row label. Assigning back to `labels.index`\n",
+    "#    makes the change stick.\n",
+    "labels.index = labels.index.map(shorten)\n",
+    "\n",
+    "labels\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "e9b6b8b5",
+   "metadata": {},
+   "source": [
+    "Using `.rename()` (which returns a copy by default):\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "969fb155",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 `.rename()` is the tidier way to relabel. `str.title` and `str.upper` are ready-made\n",
+    "#    functions, passed without brackets because we want the function itself, not its result.\n",
+    "labels.rename(index=str.title, columns=str.upper)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "d485d0a3",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 `.rename()` also takes dictionaries when you only want to change specific labels.\n",
+    "labels.rename(index={\"YISH\": \"NORTH\"}, columns={\"three\": \"peekaboo\"})\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "26987c94",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ===== 🏪 REAL DATASET (`clean`) — our coffee-shop data =====\n",
+    "# 👉 On our own table: give the columns the names a report would use.\n",
+    "clean = clean.rename(columns={\"staff_on_shift\": \"staff\", \"manager_email\": \"email\"})\n",
+    "\n",
+    "clean.columns\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "b34e7fe1",
+   "metadata": {},
+   "source": [
+    "### 3.3: String Manipulation\n",
+    "\n",
+    "Pandas has a special accessor `.str` that unlocks text methods for a whole column at once, and\n",
+    "handles missing values gracefully.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "e2dd1610",
+   "metadata": {},
+   "source": [
+    "**On our dataset:** the `manager` column has stray spaces and inconsistent case, and we want the\n",
+    "domain out of each manager's email address.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "799416f2",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ===== 🏪 REAL DATASET (`clean`) — our coffee-shop data =====\n",
+    "# 👉 Find the problem first. `repr()` shows the invisible characters, so spaces become visible.\n",
+    "[repr(v) for v in clean[\"manager\"].unique()]\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "a7ae413d",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ===== 🏪 REAL DATASET (`clean`) — our coffee-shop data =====\n",
+    "# 👉 `.str` applies a text method to the whole column at once. Chain them left to right:\n",
+    "#    strip the spaces off the ENDS, squeeze any doubled spaces in the MIDDLE down to one,\n",
+    "#    then title-case what is left. s`\\+` means \"one or more whitespace characters\".\n",
+    "clean[\"manager\"] = (\n",
+    "    clean[\"manager\"].str.strip().str.replace(r\"\\s+\", \" \", regex=True).str.title()\n",
+    ")\n",
+    "\n",
+    "clean[\"manager\"].unique()\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "8f5e0265",
+   "metadata": {},
+   "source": [
+    "**Why three methods and not two.** `.str.strip()` only removes spaces at the *ends*, so\n",
+    "`\"Priya  Nair\"` would have survived it — and one manager would have appeared twice in every summary,\n",
+    "with her shifts split between the two spellings. The `\\s+` replacement is what catches the doubled\n",
+    "space inside the name. Always print `.unique()` after a text clean-up and count the values.\n",
+    "\n",
+    "That chain would have fixed most of the outlet column too — but not `Raffles Pl.` or `Holland V`,\n",
+    "which are abbreviations rather than typos. **Text cleaning handles the mechanical mess; a mapping\n",
+    "handles the decisions.**\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "489c213c",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ===== 🏪 REAL DATASET (`clean`) — our coffee-shop data =====\n",
+    "# 👉 `.str.split(\"@\")` cuts each email in two at the @ sign; `.str[1]` takes the second\n",
+    "#    piece -- the domain. Python counts from 0, so 1 is the second item.\n",
+    "clean[\"email\"].str.split(\"@\").str[1].value_counts(dropna=False)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "177d2e11",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 A drill on the same idea, small enough to see. Start from a dictionary of name: email,\n",
+    "#    then turn it into a Series so the names become the row labels.\n",
+    "emails = pd.Series({\n",
+    "    \"Aisha\": \"aisha.rahman@dailygrind.sg\",\n",
+    "    \"Wei Ming\": \"weiming.tan@dailygrind.sg\",\n",
+    "    \"Priya\": \"priya.nair@dailygrind.sg\",\n",
+    "    \"Daniel\": \"daniel.lim@dailygrind.com.sg\",\n",
+    "    \"Unknown\": np.nan,\n",
+    "})\n",
+    "\n",
+    "emails\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "4aef790a",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 `.str` unlocks text methods for a whole column at once. Note the missing entry stays NaN\n",
+    "#    rather than raising an error -- which is exactly why `.str` exists.\n",
+    "emails.str.contains(\"dailygrind\")\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "1e591f04",
+   "metadata": {},
+   "source": [
+    "Note on data types: pandas has a dedicated text type (`string`) as well as the generic `object`.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "7010dcc9",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 Convert to the dedicated text type. Mostly the same, but missing values behave more\n",
+    "#    predictably: you get a proper <NA> rather than a float NaN inside a text column.\n",
+    "emails_str = emails.astype(\"string\")\n",
+    "\n",
+    "emails_str\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "c6c86080",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 Same test on the text-typed column: now the answer is a proper True/False/<NA>.\n",
+    "emails_str.str.contains(\"dailygrind\")\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "7ff7b1d7",
+   "metadata": {},
+   "source": [
+    "**Slicing:** you can treat the column like a Python string.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "c5750811",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 `.str[:5]` slices every value to its first 5 characters.\n",
+    "emails.str[:5]\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "aef0117d",
+   "metadata": {},
+   "source": [
+    "**Regex — one step at a time.** A *regular expression* is a pattern that describes the shape of\n",
+    "text rather than its exact content. Build it up in three steps.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "23aa81e3",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 `re` is Python's built-in regular-expression module -- pattern matching for text.\n",
+    "import re\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "58d508ba",
+   "metadata": {},
+   "source": [
+    "**Step 1 — a pattern with no groups.** `.` means \"any one character\" and `+` means \"one or more\".\n",
+    "So `.+@.+` reads: something, an @ sign, something.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "8b6985c3",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 `.str.contains` takes a regex, not just plain text. This asks: is there an @ sign\n",
+    "#    with at least one character on each side? A crude but useful \"does this look like an email\".\n",
+    "emails.str.contains(r\".+@.+\")\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "05188e2a",
+   "metadata": {},
+   "source": [
+    "**Step 2 — one group.** Round brackets `( )` mark the part you want to *keep*.\n",
+    "`.str.extract` returns the captured part.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "20a7f0ca",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 Read the pattern as: \"an @ sign, then capture everything after it\".\n",
+    "#    That capture is the domain.\n",
+    "emails.str.extract(r\"@(.+)\")\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "53165e1d",
+   "metadata": {},
+   "source": [
+    "**Step 3 — three groups.** Same idea, three times, plus two new pieces of notation:\n",
+    "\n",
+    "| Piece | Meaning |\n",
+    "|---|---|\n",
+    "| `[A-Z0-9._%+-]` | any one character from this set |\n",
+    "| `\\.` | a literal dot (a bare `.` would mean \"any character\") |\n",
+    "| `+` | one or more of the thing before it |\n",
+    "| `flags=re.IGNORECASE` | treat upper and lower case as the same |\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "81078c89",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 A regex pattern with three bracketed groups: user, domain, suffix.\n",
+    "#    The `r\"...\"` prefix stops Python treating backslashes as escape characters.\n",
+    "pattern = r\"([A-Z0-9._%+-]+)@([A-Z0-9.-]+)\\.([A-Z]{2,4})\"\n",
+    "\n",
+    "emails.str.extract(pattern, flags=re.IGNORECASE)\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "e1e4b5b0",
+   "metadata": {},
+   "source": [
+    "> **Look at Daniel's row.** His address is `daniel.lim@dailygrind.com.sg`, and the pattern put\n",
+    "> `dailygrind.com` in the domain group and `sg` in the suffix. That is not a bug in the regex — it\n",
+    "> is the regex doing exactly what you asked, on data whose shape you had not thought about.\n",
+    "> Every regex you write needs testing against the awkward cases, not the tidy ones.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "8b02c0bd",
+   "metadata": {},
+   "source": [
+    "**Retrieving elements:** chain `.str` calls to get specific parts of a match.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "b26e7a41",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 `.findall` returns a list of matches per row; `.str[0]` takes the first (and only) one,\n",
+    "#    which is a tuple of the three captured pieces.\n",
+    "matches = emails.str.findall(pattern, flags=re.IGNORECASE).str[0]\n",
+    "\n",
+    "matches\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "91547475",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 Pull item 1 out of each tuple. Python counts from 0, so 1 is the middle piece: the domain.\n",
+    "matches.str[1]\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "85d37791",
+   "metadata": {},
+   "source": [
+    "`extract` is usually the friendlier tool: it puts each group straight into its own column.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "4d189e0f",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 Name the groups and they become the column names -- much easier to read six months later.\n",
+    "emails.str.extract(r\"(?P<user>[^@]+)@(?P<domain>.+)\")\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "dae4efbd",
+   "metadata": {},
+   "source": [
+    "### 3.4: Categorical Data\n",
+    "\n",
+    "Converting text columns to the `category` type saves memory and speeds things up. And `pd.cut`\n",
+    "turns continuous numbers into labelled bands, which is what most reports actually want.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "51097686",
+   "metadata": {},
+   "source": [
+    "**On our dataset:** the owner does not want 360 revenue figures. She wants to know how many shifts\n",
+    "were quiet, normal or busy.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "c10f6463",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ===== 🏪 REAL DATASET (`clean`) — our coffee-shop data =====\n",
+    "# 👉 `pd.cut` turns numbers into labelled bands. `bins` are the cut points and `labels` names them.\n",
+    "#    Read the bins as: 0-200, 200-500, 500-1200. bins are cut points, not ranges, so the first bin is 0 ≤ x < 200, the second is 200 ≤ x < 500, etc.\n",
+    "#   “Quiet” = 0-200, “Normal” = 200-500, “Busy” = 500-1200. Anything outside those ranges becomes NaN.\n",
+    "clean[\"shift_size\"] = pd.cut(\n",
+    "    clean[\"revenue_sgd\"],\n",
+    "    bins=[0, 200, 500, 1200],\n",
+    "    labels=[\"Quiet\", \"Normal\", \"Busy\"],\n",
+    ")\n",
+    "\n",
+    "clean[\"shift_size\"].value_counts()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "d2a6a18b",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ===== 🏪 REAL DATASET (`clean`) — our coffee-shop data =====\n",
+    "# 👉 `.astype('category')` tells pandas this column has a small set of repeated values.\n",
+    "#    Same data, less memory -- and some operations get faster.\n",
+    "#    category is a special type of text column that is more efficient for repeated values, and it\n",
+    "#    also allows you to specify an order for the categories if you want to do comparisons.\n",
+    "#    The categories are ordered by the order they first appear in the data, not alphabetically.\n",
+    "\n",
+    "clean[\"outlet_name\"] = clean[\"outlet_name\"].astype(\"category\")\n",
+    "\n",
+    "clean[\"outlet_name\"].dtype\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "d3b77e2b",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ===== 🏪 REAL DATASET (`clean`) — our coffee-shop data =====\n",
+    "# 👉 One-hot encoding: turn one text column into several 0/1 columns, one per daypart, so text data becomes numerical data.\n",
+    "#    This is what most machine-learning models need instead of text.\n",
+    "\n",
+    "pd.get_dummies(clean[\"daypart\"], prefix=\"is\").head()\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "7c61bf11",
+   "metadata": {},
+   "source": [
+    "Drills on smaller examples follow.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "5f8581fc",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 A column of repeated drink names. `* 2` repeats the list, giving 8 rows.\n",
+    "drinks = pd.Series([\"latte\", \"kopi\", \"latte\", \"latte\"] * 2)\n",
+    "\n",
+    "drinks\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "1ff7346f",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 Only two distinct drinks exist, even though there are 8 rows.\n",
+    "drinks.unique()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "2824c656",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 How many of each. This repetition is exactly what the `category` type optimises.\n",
+    "drinks.value_counts()\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "60016ca6",
+   "metadata": {},
+   "source": [
+    "**Using the pandas `category` type:**\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "5d3f82e3",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 Build a realistic little dataset. `rng` is a random-number generator with a fixed seed,\n",
+    "#    so everyone gets the same numbers.\n",
+    "rng = np.random.default_rng(seed=12345)\n",
+    "n = 8\n",
+    "drink_df = pd.DataFrame({\n",
+    "    \"drink\": [\"latte\", \"kopi\", \"latte\", \"latte\"] * 2,\n",
+    "    \"count\": rng.integers(3, 15, size=n),\n",
+    "    \"weight\": rng.uniform(0, 4, size=n).round(2),\n",
+    "})\n",
+    "\n",
+    "drink_df\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "6bf6f53c",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 `.astype('category')` asks pandas to store codes plus a lookup table instead of\n",
+    "#    repeating the text. Notice the dtype in the output.\n",
+    "drink_cat = drink_df[\"drink\"].astype(\"category\")\n",
+    "\n",
+    "drink_cat\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "12a39951",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 Save the converted column back into the table so the change actually sticks.\n",
+    "drink_df[\"drink\"] = drink_cat\n",
+    "\n",
+    "drink_df.dtypes\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "ca45b8ac",
+   "metadata": {},
+   "source": [
+    "**Binning data (`pd.cut`):** converting continuous numbers into categorical bands.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "5521bd1c",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 A plain Python list of shift takings -- continuous numbers we are about to group.\n",
+    "#    `pd.cut` turns numbers into labelled bands. `bins` are the cut points and `labels` names them.\n",
+    "#   if no labels are given, the output is a categorical column with the bin ranges as labels.\n",
+    "\n",
+    "takings = [80, 145, 210, 260, 340, 480, 505, 610, 720, 880, 940, 1120]\n",
+    "\n",
+    "bins = [0, 200, 500, 1200]\n",
+    "\n",
+    "shifts = pd.cut(takings, bins)\n",
+    "\n",
+    "shifts\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "61f251ae",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 Which bin each value landed in, as a code number.\n",
+    "shifts.codes\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "164d8e88",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 The list of bin ranges that were created.\n",
+    "shifts.categories\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "646cd685",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 Count how many values fell into each bin -- an instant histogram in table form.\n",
+    "pd.Series(shifts).value_counts()\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "35dcc167",
+   "metadata": {},
+   "source": [
+    "**Binning parameters:**\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "4b1455c3",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 `right=False` flips which edge is included: now 200 starts the middle bin\n",
+    "#    rather than ending the first one. Worth checking whenever a value sits exactly on a boundary.\n",
+    "pd.cut(takings, bins, right=False)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "06f17b30",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 Give the bins human-readable names instead of number ranges. The list of labels must\n",
+    "#    have exactly one fewer entry than the list of bin edges.\n",
+    "pd.cut(takings, bins, labels=[\"Quiet\", \"Normal\", \"Busy\"])\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "eb4aa368",
+   "metadata": {},
+   "source": [
+    "If you pass an integer instead of edges, pandas computes equal-width bins for you.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "807620bf",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 Pass a plain number and pandas splits the range into that many equal-width bins.\n",
+    "#    `precision=2` just rounds the printed boundaries.\n",
+    "#   bin edge is exclusive on the left (a, b], so the minmum value would fall outside the first bin, the fix is to extend the range by 0.1% on the lower end, or use `include_lowest=True` to include the minimum value in the first bin.)\n",
+    "# range = 1120 - 80 = 1040, so each bin width = 1040 / 4 = 260\n",
+    "# pad = 1040 * 0.001 = 1.04\n",
+    "# left = 80 - 1.04 = 78.96\n",
+    "\n",
+    "pd.cut(np.array(takings), 4, precision=2)\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "d6bb395f",
+   "metadata": {},
+   "source": [
+    "**Indicator / dummy variables:** converting a categorical column into binary columns.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "861c99b5",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 A small table with a text 'key' column, ready for encoding.\n",
+    "keys_df = pd.DataFrame({\"key\": list(\"bbacab\"), \"data1\": range(6)})\n",
+    "\n",
+    "keys_df\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "5f02fc37",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 'One-hot encoding': one new 0/1 column per distinct value.\n",
+    "# get_dummies() is a convenient way to do this, and it automatically names the new columns after the distinct values in the original column. The result is a DataFrame with the same number of rows as the original, but with additional columns for each unique value in the 'key' column, filled with 0s and 1s indicating the presence of that value in each row.\n",
+    "\n",
+    "pd.get_dummies(keys_df[\"key\"])\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "5a262259",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 `prefix=` puts a label in front, so you can tell where the columns came from\n",
+    "#    after you join them onto something else.\n",
+    "\n",
+    "pd.get_dummies(keys_df[\"key\"], prefix=\"key\")\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "6eb7e665",
+   "metadata": {},
+   "source": [
+    "Recipe: combining `get_dummies` with `cut`.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "368657b1",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 Combine the two ideas: `cut` groups the numbers into bins, then `get_dummies` turns\n",
+    "#    each bin into its own 0/1 column. Common as a final step before modelling.\n",
+    "\n",
+    "values = np.random.default_rng(seed=12345).uniform(size=10)\n",
+    "edges = [0, 0.2, 0.4, 0.6, 0.8, 1.0]\n",
+    "\n",
+    "pd.get_dummies(pd.cut(values, edges))\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "89f445f4",
+   "metadata": {},
+   "source": [
+    "### 3.5: Type Conversion and Grouping\n",
+    "\n",
+    "Two jobs left. `date_text` is still **text**, so we cannot ask a single date question of it. And we\n",
+    "still have no way to compare outlets — which is the question the owner actually asked.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "edbf5da2",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ===== 🏪 REAL DATASET (`clean`) — our coffee-shop data =====\n",
+    "# 👉 Right now the dates are just strings. `.dtype` on one column confirms it: `object`.\n",
+    "clean[\"date_text\"].dtype\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "657bfeac",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ===== 🏪 REAL DATASET (`clean`) — our coffee-shop data =====\n",
+    "# 👉 `pd.to_datetime` parses text into real dates. `dayfirst=True` matters: \"06/06/2025\" is\n",
+    "#    unambiguous but \"01/06/2025\" is 1 June here and 6 January in the US, and pandas cannot know\n",
+    "#    which you meant. Tell it, or your report can be wrong by months with no error raised.\n",
+    "#.   '<M8[ns]' is the internal type for a date column, which is a 64-bit integer counting nanoseconds since 1970-01-01. The human-readable format is YYYY-MM-DD.\n",
+    "\n",
+    "clean[\"date\"] = pd.to_datetime(clean[\"date_text\"], dayfirst=True)\n",
+    "\n",
+    "clean[\"date\"].dtype\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "53068839",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ===== 🏪 REAL DATASET (`clean`) — our coffee-shop data =====\n",
+    "# 👉 `.dt` is the date accessor, the way `.str` is for text. Now these questions are possible:\n",
+    "print(\"first day:\", clean[\"date\"].min().date())\n",
+    "print(\"last day: \", clean[\"date\"].max().date())\n",
+    "\n",
+    "# 👉 Pull parts out of a date to group by later.\n",
+    "clean[\"weekday\"] = clean[\"date\"].dt.day_name()\n",
+    "\n",
+    "clean[[\"date\", \"weekday\"]].head()\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "c48aaecd",
+   "metadata": {},
+   "source": [
+    "**Grouping: split → apply → combine.** `groupby` splits the rows into groups, applies a\n",
+    "calculation to each group, and combines the answers into one table. It is the single most useful\n",
+    "summarising tool in pandas.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "1086525e",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ===== 🏪 REAL DATASET (`clean`) — our coffee-shop data =====\n",
+    "# 👉 Split by outlet, then total the revenue within each group. Read it as a sentence:\n",
+    "#    \"group by outlet name, take the revenue column, add it up\".\n",
+    "clean.groupby(\"outlet_name\", observed=True)[\"revenue_sgd\"].sum().round(2)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "faeebd35",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ===== 🏪 REAL DATASET (`clean`) — our coffee-shop data =====\n",
+    "# 👉 Several statistics at once with `.agg()`. Each line reads:\n",
+    "#    new_column_name = (which column, what calculation).\n",
+    "june_summary = clean.groupby(\"outlet_name\", observed=True).agg(\n",
+    "    revenue=(\"revenue_sgd\", \"sum\"),\n",
+    "    shifts=(\"revenue_sgd\", \"size\"),\n",
+    "    avg_shift=(\"revenue_sgd\", \"mean\"),\n",
+    "    tickets=(\"tickets\", \"sum\"),\n",
+    ")\n",
+    "june_summary = june_summary.round(2)\n",
+    "\n",
+    "june_summary\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "26d87ca3",
+   "metadata": {},
+   "source": [
+    "**This table is the point of the whole lesson.** It is only trustworthy because every number\n",
+    "behind it was checked: the sentinels are gone, the duplicate batch is gone, the mis-keyed\n",
+    "\\$98,000 is gone, and the four cafés are four cafés rather than twelve.\n",
+    "\n",
+    "Here is the same question asked of the raw file:\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "3f63099f",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ===== 🏪 REAL DATASET (`raw`) — our coffee-shop data =====\n",
+    "# 👉 The same summary, on the untouched original. Twelve \"outlets\", and a total that is\n",
+    "#    more than 50% too high.\n",
+    "raw_numeric = raw.copy()\n",
+    "raw_numeric[\"revenue_sgd\"] = pd.to_numeric(\n",
+    "    raw_numeric[\"revenue_raw\"].str.replace(r\"[^0-9.\\-]\", \"\", regex=True), errors=\"coerce\"\n",
+    ")\n",
+    "\n",
+    "raw_numeric.groupby(\"outlet\")[\"revenue_sgd\"].sum().round(2)\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "b42e796b",
+   "metadata": {},
+   "source": [
+    "> **Twelve rows instead of four, and no single row you could put in front of the owner.** This is\n",
+    "> what \"the data was messy\" costs in practice: not a slightly wrong answer, but a table nobody\n",
+    "> can use.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "883705a1",
+   "metadata": {},
+   "source": [
+    "### 🛠️ Group Exercise 3 — Transformation (10 min)\n",
+    "\n",
+    "Split (a), (b), (c) across your group, then compare. Scaffolding fades as you go.\n",
+    "\n",
+    "> **(a) Fill in the blanks — mapping** — on `practice3` below, replace *both* bad codes with `NaN`:\n",
+    "> ```python\n",
+    "> practice3.replace([____, ____], np.nan)\n",
+    "> ```\n",
+    "> *Expected:* two holes appear.\n",
+    ">\n",
+    "> **(b) From scratch — strings** — from `clean[\"email\"]`, extract just the part *before* the @ sign\n",
+    "> into a new column called `email_user`. *Hint:* `.str.split(\"@\").str[0]`, or the regex\n",
+    "> `r\"([^@]+)@\"` with `.str.extract`.\n",
+    ">\n",
+    "> **(c) From scratch — grouping** — build a table with one row per `weekday` showing total revenue\n",
+    "> and the number of shifts, sorted from busiest day to quietest.\n",
+    "> *Hint:* `groupby` → `.agg(...)` → `.sort_values(...)`.\n",
+    ">\n",
+    "> **(d) Explain, no code** — you used `pd.cut` with `bins=[0, 200, 500, 1200]`. What happens to a\n",
+    "> shift that took \\$1,350? Look at `clean[\"shift_size\"].isna().sum()` and say why `pd.cut` is\n",
+    "> safer than writing three `if` statements.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "21307944",
+   "metadata": {},
+   "source": [
+    "**(a)** uses the `practice3` table below.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "5254f634",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 Practice data for the exercise: -999 and 999 stand in for two different bad codes.\n",
+    "practice3 = pd.Series([120.0, -999.0, 340.0, 999.0, 210.0])\n",
+    "\n",
+    "practice3\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "8a1796d2",
+   "metadata": {},
+   "source": [
+    "> **Check yourself:** `practice3.replace(...)` returns a *new* Series. Nothing changes in\n",
+    "> `practice3` unless you assign the result back to it.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "c80a891f",
+   "metadata": {},
+   "source": [
+    "---\n",
+    "\n",
+    "## Part 4: Reading and Writing Data (Self-Study)\n",
+    "\n",
+    "**Learning outcome 4:** *Read and write data across multiple file formats (CSV, JSON, Excel,\n",
+    "databases).*\n",
+    "\n",
+    "**Goal:** get the cleaned table out of this notebook and into a file somebody else can use.\n",
+    "Nothing in Parts 1–3 needed this, which is why it comes last.\n",
+    "\n",
+    "⏱️ ~15 min\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "cb4f02cb",
+   "metadata": {},
+   "source": [
+    "### 4.1: Reading Data\n",
+    "\n",
+    "Pandas is flexible about input formats. Start with a plain comma-separated file.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "b7efadbf",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 The leading `!` runs a terminal command rather than Python. `cat` prints a file as-is,\n",
+    "#    which is the fastest way to see what you are about to load.\n",
+    "!cat ../data/ex1.csv\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "59117883",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 `read_csv` turns that text file into a DataFrame. The path `../data/` means\n",
+    "#    'go up one folder from notebooks/, then into data/'.\n",
+    "pd.read_csv(\"../data/ex1.csv\")\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "0800aefb",
+   "metadata": {},
+   "source": [
+    "**Scenario:** what if the file has no header row? Without telling pandas, it will use your first\n",
+    "row of real data as the column names.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "0e6d8523",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Same peek, at a file whose first line is real data rather than column names.\n",
+    "!cat ../data/ex2.csv\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "a265682a",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 `header=None` says 'there are no column names', so pandas numbers them 0, 1, 2...\n",
+    "pd.read_csv(\"../data/ex2.csv\", header=None)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "1a74465a",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Better: supply your own column names with `names=`.\n",
+    "pd.read_csv(\n",
+    "    \"../data/ex2.csv\",\n",
+    "    names=[\"date\", \"outlet_id\", \"daypart\", \"tickets\", \"items\", \"revenue_sgd\"],\n",
+    ")\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "44d0b898",
+   "metadata": {},
+   "source": [
+    "**Indexing:** you can promote a column to be the row labels.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "0f58279a",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 `index_col=` promotes one column to be the row labels instead of an ordinary column.\n",
+    "names = [\"date\", \"outlet_id\", \"daypart\", \"tickets\", \"items\", \"revenue_sgd\"]\n",
+    "\n",
+    "pd.read_csv(\"../data/ex2.csv\", names=names, index_col=\"outlet_id\")\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "dfb83ac1",
+   "metadata": {},
+   "source": [
+    "**Junk before the header:** exports often start with a couple of comment lines.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "5459178e",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Two lines of preamble before the real header.\n",
+    "!cat ../data/ex4.csv\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "689b3791",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 `skiprows=` drops lines by position. `comment=\"#\"` is the more robust version:\n",
+    "#    it ignores any line starting with that character, wherever it appears.\n",
+    "pd.read_csv(\"../data/ex4.csv\", comment=\"#\")\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "122047d3",
+   "metadata": {},
+   "source": [
+    "**Handling missing values at load time:** pandas already recognises empty fields, `NA`, `NULL` and\n",
+    "`n/a`. It cannot guess *your* system's conventions.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "2588fea1",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 This file writes missing values in several different ways.\n",
+    "!cat ../data/ex5.csv\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "61201498",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Out of the box, pandas recognises the empty field, 'NA', 'NULL' and 'n/a' -- but -999\n",
+    "#    comes through as a number, because there is no way for pandas to know it is a code.\n",
+    "result = pd.read_csv(\"../data/ex5.csv\")\n",
+    "\n",
+    "result\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "65954c3c",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 `na_values=` adds your own conventions to the list. Doing it here, at load time, is\n",
+    "#    tidier than fixing it later -- and it means the sentinel never poisons a statistic.\n",
+    "pd.read_csv(\"../data/ex5.csv\", na_values=[\"-999\"])\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "df019285",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Sometimes 'missing' is spelled differently per column. A dictionary says which\n",
+    "#    text counts as missing in which column.\n",
+    "pd.read_csv(\"../data/ex5.csv\", na_values={\"tickets\": [\"-999\"], \"revenue_sgd\": [\"n/a\"]})\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "f05b206f",
+   "metadata": {},
+   "source": [
+    "**Reading Excel:** a workbook can hold several sheets, so you usually look before you load.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "3d5626ba",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Open the workbook and see what is inside it.\n",
+    "workbook = pd.ExcelFile(\"../data/cafe_june_workbook.xlsx\")\n",
+    "\n",
+    "workbook.sheet_names\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "0055f966",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 `.parse()` reads one named sheet into a DataFrame.\n",
+    "workbook.parse(sheet_name=\"Outlets\")\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "05eb424f",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 The one-line shortcut when you already know the sheet you want.\n",
+    "pd.read_excel(\"../data/cafe_june_workbook.xlsx\", sheet_name=\"June\").head()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "5fee48ea",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Now compare. This workbook (and the database in 4.3) holds the *reference* clean June --\n",
+    "#    the version with the eight damaged shifts restored from the original till logs.\n",
+    "reference = pd.read_excel(\"../data/cafe_june_workbook.xlsx\", sheet_name=\"June\")\n",
+    "\n",
+    "print(f\"your cleaned June:      ${clean['revenue_sgd'].sum():>11,.2f}\")\n",
+    "print(f\"reference clean June:   ${reference['revenue_sgd'].sum():>11,.2f}\")\n",
+    "print(f\"difference:             ${reference['revenue_sgd'].sum() - clean['revenue_sgd'].sum():>11,.2f}\")\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "8955ff7c",
+   "metadata": {},
+   "source": [
+    "> **Your number is different, and that is the right answer.** Eight shifts in the raw export had lost\n",
+    "> their true figure — four sentinels, one mis-key, three blanks — and you filled them with the median,\n",
+    "> because the median is the best defensible guess available *from that file*. The reference version was\n",
+    "> reconstructed from the original till logs, which you were never given.\n",
+    ">\n",
+    "> \\$916 on \\$175,669 is **0.5%**, and you can name every dollar of it. That is what a clean dataset\n",
+    "> looks like in practice: not identical to the truth, but different from it in ways you can explain.\n",
+    ">\n",
+    "> This reference file is the June slice of what Lesson 1.9 opens next.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "487b04af",
+   "metadata": {},
+   "source": [
+    "### 4.2: Writing Data (Exporting)\n",
+    "\n",
+    "Saving is the mirror of reading.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "8262651d",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 `to_csv` writes the DataFrame back out to a file.\n",
+    "result.to_csv(\"../data/out.csv\")\n",
+    "\n",
+    "# 👉 Peek at what was written. Notice the extra unnamed first column -- that is the index.\n",
+    "!cat ../data/out.csv\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "d96c7718",
+   "metadata": {},
+   "source": [
+    "**Tip:** you usually want `index=False`, so the row numbers are not saved as a mystery column.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "13b0a3e6",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 `index=False` leaves the row labels out, which is what you want when the index is\n",
+    "#    just 0, 1, 2... and carries no meaning.\n",
+    "result.to_csv(\"../data/out.csv\", index=False)\n",
+    "\n",
+    "!cat ../data/out.csv\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "7ae48f7d",
+   "metadata": {},
+   "source": [
+    "**JSON export:** the format APIs and web services speak.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "e50fb720",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 `orient=\"records\"` writes a list of one object per row, which is what most web APIs expect.\n",
+    "result.to_json(\"../data/out.json\", orient=\"records\")\n",
+    "\n",
+    "!cat ../data/out.json\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "b54bd39d",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 And straight back in.\n",
+    "pd.read_json(\"../data/out.json\", orient=\"records\")\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "dd7902e4",
+   "metadata": {},
+   "source": [
+    "**Save our session's work.** Everything from Parts 2 and 3 lives in `clean`. Write out the columns\n",
+    "a colleague would actually want.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "dbef29b1",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Keep the useful columns, in a sensible order, with the tidy names.\n",
+    "final = clean[[\n",
+    "    \"date\", \"outlet_name\", \"daypart\", \"tickets\", \"items\", \"revenue_sgd\", \"staff\", \"manager\",\n",
+    "]].sort_values([\"date\", \"outlet_name\", \"daypart\"])\n",
+    "\n",
+    "final.to_csv(\"../data/cafe_june_clean.csv\", index=False)\n",
+    "\n",
+    "final.head()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "d44852ea",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Beat 4 of the 1.8 habit -- verify. Read back what you just wrote and check it matches.\n",
+    "check = pd.read_csv(\"../data/cafe_june_clean.csv\")\n",
+    "\n",
+    "print(\"rows written:\", len(check))\n",
+    "print(f\"June revenue: ${check['revenue_sgd'].sum():,.2f}\")\n",
+    "print(\"date column came back as:\", check[\"date\"].dtype)\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "c399c68e",
+   "metadata": {},
+   "source": [
+    "> **Note that last line.** The date went out as a real date and came back as **text**. CSV has no\n",
+    "> way to store types, so every reader has to re-parse them (`parse_dates=[\"date\"]`). Databases and\n",
+    "> pickle files remember types; CSV and JSON forget them. That is worth knowing before you build a\n",
+    "> pipeline out of CSVs.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "e6b2371d",
+   "metadata": {},
+   "source": [
+    "**Excel export:**\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "4bb7bef3",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Writing Excel needs a 'writer' object when you want control over sheets.\n",
+    "#    Using `with` closes the file for you, which is what actually saves it.\n",
+    "with pd.ExcelWriter(\"../data/cafe_june_clean.xlsx\") as writer:\n",
+    "    final.to_excel(writer, sheet_name=\"June\", index=False)\n",
+    "    june_summary.to_excel(writer, sheet_name=\"Summary\")\n",
+    "\n",
+    "pd.ExcelFile(\"../data/cafe_june_clean.xlsx\").sheet_names\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "f85cf3b3",
+   "metadata": {},
+   "source": [
+    "### 4.3: Databases\n",
+    "\n",
+    "Most real data lives in a database rather than a file. `sqlalchemy` is the library pandas uses to\n",
+    "talk to them, and the pandas side barely changes.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "1a651a0f",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 SQLAlchemy speaks to many database engines through one interface.\n",
+    "import sqlalchemy as sqla\n",
+    "\n",
+    "# 👉 A connection string says which engine and which file. `sqlite:///` is a local file --\n",
+    "#    no server to install, which is why it is the right thing for a lesson.\n",
+    "engine = sqla.create_engine(\"sqlite:///../data/cafe.db\")\n",
+    "\n",
+    "# 👉 What tables are in there? `inspect` is the version-safe way to ask.\n",
+    "sqla.inspect(engine).get_table_names()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "84c732e9",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Give a table name and pandas reads the whole table into a DataFrame.\n",
+    "pd.read_sql_table(\"outlets\", engine)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "f6308159",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Or hand it real SQL and only the query result comes back. Same DataFrame either way.\n",
+    "#    Everything you learned about SQL in Lessons 1.3-1.5 works here.\n",
+    "query = (\n",
+    "    'SELECT outlet_id, SUM(revenue_sgd) AS revenue, COUNT(*) AS shifts '\n",
+    "    'FROM daily_sales_june '\n",
+    "    'GROUP BY outlet_id '\n",
+    "    'ORDER BY revenue DESC'\n",
+    ")\n",
+    "\n",
+    "pd.read_sql(query, engine)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "a283845c",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Writing back: `to_sql` creates (or replaces) a table from a DataFrame.\n",
+    "#    This is how a cleaned table gets handed to the rest of the business.\n",
+    "final.to_sql(\"june_clean\", engine, index=False, if_exists=\"replace\")\n",
+    "\n",
+    "sqla.inspect(engine).get_table_names()\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "33472f98",
+   "metadata": {},
+   "source": [
+    "> **Task:** write a *filtered* table to the database.\n",
+    "> 1. Filter `final` to Marina Bay only.\n",
+    "> 2. Write it to a new table called `marina_june`.\n",
+    "> 3. Read it back with `pd.read_sql` and check the row count is 90 (30 days × 3 dayparts).\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "e9ebc9d4",
+   "metadata": {},
+   "source": [
+    "> **Final challenge:**\n",
+    "> 1. Read `daily_sales_june` back out of the database.\n",
+    "> 2. Compute total revenue per daypart with SQL (`GROUP BY daypart`) *and* with pandas\n",
+    ">    (`groupby(\"daypart\")`).\n",
+    "> 3. Confirm the two agree. Two tools, one answer — that is the check worth building the habit on.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "03e3134d",
+   "metadata": {},
+   "source": [
+    "## 🎯 Wrap-Up\n",
+    "\n",
+    "1. **Always run the five-move first look** on a new file — head, shape, info, dtypes, describe.\n",
+    "   It takes two minutes and it found all five of today's problems.\n",
+    "2. **Wrong types hide everything.** The impossible \\$98,000 and the -999 sentinels were invisible\n",
+    "   while revenue was text. Move 4 (`.dtypes`) is not paperwork.\n",
+    "3. **Cleaning decisions depend on what the value means**, not on what is convenient: fill, drop,\n",
+    "   cap or mark missing are four different answers to four different situations.\n",
+    "4. **Order of operations matters.** Remove the sentinels *before* you compute the median you are\n",
+    "   going to impute with.\n",
+    "5. **Standardise your keys before you trust a check.** The duplicate check in 2.2 was meaningless\n",
+    "   until the twelve outlet spellings became four.\n",
+    "6. **A clean table is not the goal; a trustworthy answer is.** Section 3.5 — four rows, one per\n",
+    "   café — is what all the cleaning was for.\n",
+    "\n",
+    "**Next Steps:**\n",
+    "- Complete the [Assignment](./assignment.md) — audit a second month of the same export.\n",
+    "- Next lesson: **1.9 EDA Advanced** opens `daily_sales.csv` — the same export for **all 18 months**,\n",
+    "  cleaned exactly the way you just cleaned June, and asks what the pattern is.\n",
+    "\n",
+    "> **The handoff, in one number.** Your cleaned June total is **\\$174,753**. In Lesson 1.9's clean\n",
+    "> 18-month file, June 2025 is **\\$175,669** — a difference of **\\$916**, or 0.5%, and you can say\n",
+    "> exactly where it comes from: **eight shifts** (four sentinels, one mis-keyed figure and three blanks)\n",
+    "> where you put the median in place of a number this export had destroyed.\n",
+    ">\n",
+    "> That is the difference between clean data and lucky data: not that your figure matches, but that\n",
+    "> you can account for why it does not.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "ab79bd4f",
+   "metadata": {},
+   "source": [
+    "---\n",
+    "\n",
+    "## 📎 Appendix — Self-Study\n",
+    "\n",
+    "These topics fall outside today's four learning outcomes, but come up constantly in practice.\n",
+    "Deep dives on categorical internals, awkward CSV parsing and pickle files live in `reference.md`.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "f02862ed",
+   "metadata": {},
+   "source": [
+    "### Permutation and Random Sampling\n",
+    "\n",
+    "Reordering rows, or taking a random subset — the basis of train/test splits later in the course.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "d559c99c",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 A 5x7 table of the numbers 0-34 to make row shuffling easy to see.\n",
+    "df = pd.DataFrame(np.arange(5 * 7).reshape((5, 7)))\n",
+    "\n",
+    "df\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "21be3eaa",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 `permutation(5)` returns the numbers 0-4 in random order -- a shuffled seating plan.\n",
+    "sampler = np.random.default_rng(seed=12345).permutation(5)\n",
+    "\n",
+    "sampler\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "0020f072",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 `.iloc[...]` selects rows *by position*, so the table comes back in the shuffled order.\n",
+    "df.iloc[sampler]\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "73dafdfa",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 `.take()` does the same job and reads a little more clearly.\n",
+    "df.take(sampler)\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "21d4016f",
+   "metadata": {},
+   "source": [
+    "Permuting columns:\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "2f3833af",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 `df.shape[1]` is the number of columns, so this shuffles the column positions.\n",
+    "column_sampler = np.random.default_rng(seed=12345).permutation(df.shape[1])\n",
+    "\n",
+    "column_sampler\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "e4896ca4",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 `axis=1` applies the shuffle to columns instead of rows.\n",
+    "df.take(column_sampler, axis=1)\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "abc33653",
+   "metadata": {},
+   "source": [
+    "**Random sample:** getting a random subset without the manual shuffle.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "4dd14b4b",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 `.sample()` skips the manual shuffle: just ask for 3 random rows.\n",
+    "df.sample(n=3)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "8559028b",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 `replace=True` puts each pick back in the hat, so 10 draws from 5 rows is possible\n",
+    "#    and rows can repeat. This is 'sampling with replacement'.\n",
+    "df.sample(n=10, replace=True)\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "22c77103",
+   "metadata": {},
+   "source": [
+    "> **Task:** sample `df` using the parameter `frac` (a fraction of the rows) instead of `n` (a count).\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "6b28d360",
+   "metadata": {},
+   "source": [
+    "---\n",
+    "\n",
+    "## ✅ Sample Solutions — Group Exercises 1, 2 & 3\n",
+    "\n",
+    "One worked answer per task. These are *a* solution, not *the* solution — if your code gives the\n",
+    "same answer by another route, it is right. Try each exercise before reading on.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "5eddea07",
+   "metadata": {},
+   "source": [
+    "### Group Exercise 1 — Summarising\n",
+    "\n",
+    "**(b) Sort the outlet counts by frequency, smallest first.**\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "479f37bd",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ===== 🏪 REAL DATASET (`raw`) — our coffee-shop data =====\n",
+    "# 👉 `.value_counts()` already sorts biggest-first, so we re-sort the *values* of that\n",
+    "#    count table ascending to put the rarest spelling on top.\n",
+    "raw[\"outlet\"].value_counts().sort_values(ascending=True)\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "7fe3dd3b",
+   "metadata": {},
+   "source": [
+    "Twelve rows, smallest count on top. Read it as a finding, not a list: no single spelling\n",
+    "dominates — `Holland V` (47) is used *more* than the tidy `Holland Village` (44), and Raffles Place\n",
+    "is split four ways across 23 rows each. Group by `outlet` today and every café is understated.\n",
+    "\n",
+    "**(c) Which shift sold the most items?**\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "e13e9cd8",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ===== 🏪 REAL DATASET (`raw`) — our coffee-shop data =====\n",
+    "# 👉 `.idxmax()` gives the *row label* of the largest value (not the value itself),\n",
+    "#    then `.loc[...]` pulls that whole row out so we can see which shift it was.\n",
+    "busiest = raw[\"items\"].idxmax()\n",
+    "\n",
+    "raw.loc[busiest]\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "d929dfb5",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Same answer as a one-row table rather than a Series: pass a *list* of labels.\n",
+    "raw.loc[[raw[\"items\"].idxmax()]]\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "bff1c572",
+   "metadata": {},
+   "source": [
+    "**(d) `info()` says 364 non-null tickets but the table has 366 rows — where did 2 go?**\n",
+    "\n",
+    "Two shifts have no ticket count recorded at all: the cell is empty in the export, so pandas\n",
+    "stores `NaN` and `.info()` does not count it as non-null. Nothing was deleted — the till simply\n",
+    "never wrote a number for those two shifts.\n",
+    "\n",
+    "Showing them as missing is better than showing `0` because **`0` is a claim and `NaN` is an\n",
+    "admission**. `0` says \"this shift served zero customers\" — a real, meaningful business fact.\n",
+    "`NaN` says \"we do not know what this shift served\". Writing `0` would silently drag the mean\n",
+    "tickets-per-shift down, make the shift look like a genuine closure, and hide a data-collection\n",
+    "problem you may want to go and fix. Pandas also skips `NaN` in `.mean()`, `.sum()` and friends\n",
+    "automatically, so leaving it missing keeps the summary statistics honest.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "3590377f",
+   "metadata": {},
+   "source": [
+    "### Group Exercise 2 — Data Quality\n",
+    "\n",
+    "**(b) Drop only the rows with fewer than 2 real values.**\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "682eb8b4",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 `thresh=2` means \"keep a row if it has at least 2 non-missing values\".\n",
+    "#    Row 4 (all three values missing) is the only one that fails the test.\n",
+    "practice.dropna(thresh=2)\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "1723db5f",
+   "metadata": {},
+   "source": [
+    "5 of the 6 rows survive. Note the wording: `thresh` is a *keep* threshold, not a drop\n",
+    "threshold — rows 0 and 2 each have one hole but still hold 2 real values, so they stay.\n",
+    "\n",
+    "**(c) Fill the holes in column `b` with that column's median, leaving `a` and `c` untouched.**\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "6538c6bd",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 A dictionary tells `.fillna()` which column gets which filler, so only `b` is touched.\n",
+    "#    `.median()` skips the NaNs itself, so it is the median of the real values.\n",
+    "practice.fillna({\"b\": practice[\"b\"].median()})\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "0e353d98",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Verify: column `b` should have no holes left, while `a` and `c` keep the hole in row 4.\n",
+    "practice.fillna({\"b\": practice[\"b\"].median()}).isna().sum()\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "2811be51",
+   "metadata": {},
+   "source": [
+    "**(d) How many rows of `raw` had a `revenue_raw` that could not be read as a number at all?**\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "a8070659",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ===== 🏪 REAL DATASET (`raw`) — our coffee-shop data =====\n",
+    "# 👉 Re-run the same conversion on the *untouched* raw column and count what fell through.\n",
+    "#    `errors=\"coerce\"` puts NaN wherever the text was not readable as a number.\n",
+    "unreadable = pd.to_numeric(\n",
+    "    raw[\"revenue_raw\"].str.replace(r\"[^0-9.\\-]\", \"\", regex=True), errors=\"coerce\"\n",
+    ").isna().sum()\n",
+    "\n",
+    "print(\"rows that could not be read as a number:\", unreadable)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "52a5d240",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Look at the actual offenders, so the number is not just a number.\n",
+    "bad = pd.to_numeric(\n",
+    "    raw[\"revenue_raw\"].str.replace(r\"[^0-9.\\-]\", \"\", regex=True), errors=\"coerce\"\n",
+    ").isna()\n",
+    "\n",
+    "raw.loc[bad, [\"outlet\", \"daypart\", \"revenue_raw\"]]\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "54e9e576",
+   "metadata": {},
+   "source": [
+    "**Why `errors=\"coerce\"` is safer than letting the conversion raise:** raising stops the whole\n",
+    "conversion on the *first* bad value, so you fix one row, re-run, hit the next bad row, and repeat —\n",
+    "and you never see how big the problem is. `coerce` converts everything it can, parks every failure\n",
+    "as `NaN`, and lets you count and inspect all of them in one pass. You still have to decide what to\n",
+    "do with them; you just get to see the full damage first.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "3cb808d4",
+   "metadata": {},
+   "source": [
+    "### Group Exercise 3 — Transformation\n",
+    "\n",
+    "**(a) Replace both bad codes with `NaN`.**\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "089ee61b",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ----- 🧪 DRILL (toy data) — practice only, not our dataset -----\n",
+    "# 👉 `.replace()` takes a list of values to swap out and one value to swap in.\n",
+    "#    -999 and 999 are two different sentinels; both mean \"no reading\".\n",
+    "practice3.replace([-999.0, 999.0], np.nan)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "7d926e95",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Remember: that returned a *new* Series. `practice3` itself is unchanged\n",
+    "#    until you assign the result back.\n",
+    "practice3\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "a1064475",
+   "metadata": {},
+   "source": [
+    "**(b) Extract the part before the @ sign into `email_user`.**\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "3cc8f8c4",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ===== 🏪 REAL DATASET (`clean`) — our coffee-shop data =====\n",
+    "# 👉 `.str.split(\"@\")` gives a list per row, e.g. [\"aisha.rahman\", \"dailygrind.sg\"];\n",
+    "#    `.str[0]` then takes the first piece of each list.\n",
+    "clean[\"email_user\"] = clean[\"email\"].str.split(\"@\").str[0]\n",
+    "\n",
+    "clean[[\"email\", \"email_user\"]].head()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "f025e0c0",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 👉 Same answer with a regex: \"one or more characters that are not @, followed by @\".\n",
+    "#    The brackets mark the part we want kept. `.str.extract` returns a DataFrame,\n",
+    "#    so `[0]` pulls out that single column.\n",
+    "clean[\"email\"].str.extract(r\"([^@]+)@\")[0].head()\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "3042e75e",
+   "metadata": {},
+   "source": [
+    "**(c) Total revenue and number of shifts per weekday, busiest day first.**\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "1170bc4c",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ===== 🏪 REAL DATASET (`clean`) — our coffee-shop data =====\n",
+    "# 👉 One row per weekday, two numbers per row: the money total and how many shifts\n",
+    "#    went into it. Naming the outputs in `.agg()` saves renaming afterwards.\n",
+    "by_weekday = (\n",
+    "    clean.groupby(\"weekday\")\n",
+    "    .agg(total_revenue=(\"revenue_sgd\", \"sum\"), shifts=(\"revenue_sgd\", \"size\"))\n",
+    "    .sort_values(\"total_revenue\", ascending=False)\n",
+    ")\n",
+    "\n",
+    "by_weekday\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "1b50635b",
+   "metadata": {},
+   "source": [
+    "Always read the `shifts` column next to the money. A day with fewer shifts recorded will\n",
+    "look quieter even if its *per-shift* takings are the same — the count is what stops you drawing\n",
+    "that wrong conclusion.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "dbf3a3e5",
+   "metadata": {},
+   "source": [
+    "**(d) What happens to a shift that took \\$1,350 under `pd.cut(bins=[0, 200, 500, 1200])`?**\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "d03def71",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ===== 🏪 REAL DATASET (`clean`) — our coffee-shop data =====\n",
+    "# 👉 Anything outside the outermost edges becomes NaN. Count them, then look at them.\n",
+    "print(\"shifts with no size label:\", clean[\"shift_size\"].isna().sum())\n",
+    "\n",
+    "clean.loc[clean[\"shift_size\"].isna(), [\"outlet_name\", \"daypart\", \"revenue_sgd\", \"shift_size\"]]\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "a4efdd65",
+   "metadata": {},
+   "source": [
+    "\\$1,350 is above the top edge of 1200, so it falls into **no bin at all** and `pd.cut` labels it\n",
+    "`NaN`. The value is not silently dropped and not silently squeezed into the top bucket — it is\n",
+    "marked as unclassified, and `.isna().sum()` will show it to you.\n",
+    "\n",
+    "**Why that is safer than three `if` statements.** A hand-written chain like\n",
+    "\n",
+    "```python\n",
+    "if r < 200:   size = \"quiet\"\n",
+    "elif r < 500: size = \"normal\"\n",
+    "else:         size = \"busy\"\n",
+    "```\n",
+    "\n",
+    "has a silent `else` that swallows *everything* above 500 — \\$1,350, \\$98,000 and a mis-keyed\n",
+    "\\$980,000 all come out labelled \"busy\", and nothing tells you. It also quietly mislabels missing\n",
+    "revenue and negative sentinels. `pd.cut` makes the boundaries explicit data (`bins=[...]`), applies\n",
+    "them to the whole column in one vectorised pass, refuses to guess about anything outside the range,\n",
+    "and gives you one honest counter — `.isna().sum()` — for how often it had to refuse.\n"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "pds",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.10.20"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}

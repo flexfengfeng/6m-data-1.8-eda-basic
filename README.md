@@ -117,7 +117,14 @@ start working the list. That progression *is* the lesson.
 
 - **[VS Code](https://code.visualstudio.com)** + Python + Jupyter extensions *(recommended)*.
 - **[Google Colab](https://colab.research.google.com)** *(alternative)*.
-- **Notebook:** `notebooks/eda_basic.ipynb` — select the `pds` kernel in VS Code.
+- **Notebooks:** the lesson is split into four self-contained parts — open them in order,
+  selecting the `pds` kernel in VS Code:
+  1. `notebooks/Part_1_descriptive_statistics.ipynb`
+  2. `notebooks/Part_2_data_quality.ipynb`
+  3. `notebooks/Part_3_data_transformation.ipynb`
+  4. `notebooks/Part_4_reading_writing_data.ipynb`
+  
+  (The original single notebook is kept for reference at `notebooks/_original/eda_basic.ipynb`.)
 - **Environment:** `conda env create -f environment.yml` then `conda activate pds`.
 - **Pandas version:** the notebook targets the `pds` environment (pandas 1.5). It avoids APIs removed
   in pandas 2.x, so it also runs on Google Colab.
